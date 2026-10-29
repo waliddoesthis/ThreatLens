@@ -4,12 +4,13 @@ Tick boxes as you go. Each milestone ends with something measurable for the READ
 
 ## M0 — Setup (½ day)
 - [x] Repo scaffold, CLAUDE.md, SPEC, roadmap
-- [ ] `make install` works, `make test` green
-- [ ] GitHub repo created (public), first commit
+- [x] `make install` works, `make test` green
+- [x] GitHub repo created (public), first commit
 
 ## M1 — MVP RAG (days 1–4)
-- [ ] Ingest MITRE ATT&CK (techniques, sub-techniques, mitigations)
-- [ ] Ingest CISA KEV
+- [x] Ingest MITRE ATT&CK (techniques, sub-techniques, mitigations)
+- [x] Ingest CISA KEV
+- [x] BM25-only index + baseline eval (`--sparse-only`, `--modes bm25`)
 - [ ] Ingest SigmaHQ rules
 - [ ] Ingest CERT-FR advisories (RSS)
 - [ ] NVD lookup on demand for CVE ids not in KEV
