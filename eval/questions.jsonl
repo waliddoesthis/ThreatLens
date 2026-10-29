@@ -1,0 +1,15 @@
+{"id": "q001", "type": "technique", "question": "How do attackers abuse PowerShell to execute malicious commands?", "gold_ids": ["attack:T1059.001"]}
+{"id": "q002", "type": "technique", "question": "How can an attacker dump credentials from LSASS memory?", "gold_ids": ["attack:T1003.001"]}
+{"id": "q003", "type": "technique", "question": "Phishing email with a malicious Office attachment as initial access", "gold_ids": ["attack:T1566.001"]}
+{"id": "q004", "type": "technique", "question": "What is Kerberoasting?", "gold_ids": ["attack:T1558.003"]}
+{"id": "q005", "type": "technique", "question": "Persistence using Windows scheduled tasks", "gold_ids": ["attack:T1053.005"]}
+{"id": "q006", "type": "technique", "question": "Ransomware encrypting files on the victim's systems", "gold_ids": ["attack:T1486"]}
+{"id": "q007", "type": "technique", "question": "Malware adding itself to registry Run keys to start at logon", "gold_ids": ["attack:T1547.001"]}
+{"id": "q008", "type": "technique", "question": "Lateral movement using stolen NTLM hashes without cracking them", "gold_ids": ["attack:T1550.002"]}
+{"id": "q009", "type": "technique", "question": "Attacker clears the Windows event logs to hide activity", "gold_ids": ["attack:T1685.005"]}
+{"id": "q010", "type": "technique", "question": "Lateral movement over Remote Desktop Protocol", "gold_ids": ["attack:T1021.001"]}
+{"id": "q011", "type": "mitigation", "question": "Which mitigation requires a second authentication factor for users?", "gold_ids": ["attack:M1032"]}
+{"id": "q012", "type": "cve", "question": "Is CVE-2024-3400 known to be exploited?", "gold_ids": ["kev:CVE-2024-3400"]}
+{"id": "q013", "type": "cve", "question": "Log4Shell remote code execution in Apache Log4j", "gold_ids": ["kev:CVE-2021-44228"]}
+{"id": "q014", "type": "cve", "question": "Citrix NetScaler session token leak known as Citrix Bleed", "gold_ids": ["kev:CVE-2023-4966"]}
+{"id": "q015", "type": "cve", "question": "MOVEit Transfer SQL injection exploited by ransomware groups", "gold_ids": ["kev:CVE-2023-34362"]}
