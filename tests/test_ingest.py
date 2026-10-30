@@ -1,10 +1,12 @@
 """Parser tests for Sigma, CERT-FR and NVD — offline, using small fixtures."""
 
+import zipfile
+
 import feedparser
 
 from threatlens.ingest import nvd
 from threatlens.ingest.certfr import parse as parse_certfr
-from threatlens.ingest.sigma import rule_to_doc
+from threatlens.ingest.sigma import _from_dir, _from_zip, parse_files, rule_to_doc
 
 RSS = """<?xml version="1.0"?>
 <rss version="2.0"><channel><title>CERT-FR</title>
@@ -38,6 +40,37 @@ def test_sigma_rule_to_doc_extracts_techniques():
 def test_sigma_rule_without_id_is_skipped():
     assert rule_to_doc({"title": "no id"}, "rules/x.yml") is None
     assert rule_to_doc(["not", "a", "dict"], "rules/x.yml") is None
+
+
+RULE_YML = b"""title: Test Rule
+id: 11111111-2222-3333-4444-555555555555
+tags: [attack.execution, attack.t1059.001]
+logsource: {product: windows, category: process_creation}
+detection: {selection: {Image|endswith: '\\powershell.exe'}, condition: selection}
+"""
+
+
+def test_sigma_reads_zip_and_git_checkout_identically(tmp_path):
+    files = {
+        "rules/windows/a.yml": RULE_YML,
+        "rules/windows/broken.yml": b"title: [unclosed",
+        "deprecated/old.yml": RULE_YML.replace(b"1111", b"9999"),
+        "rules/README.md": b"not a rule",
+    }
+    zpath = tmp_path / "sigma-master.zip"
+    with zipfile.ZipFile(zpath, "w") as z:
+        for name, data in files.items():
+            z.writestr(f"sigma-master/{name}", data)
+    repo = tmp_path / "sigma"
+    for name, data in files.items():
+        (repo / name).parent.mkdir(parents=True, exist_ok=True)
+        (repo / name).write_bytes(data)
+
+    from_zip = parse_files(_from_zip(zpath))
+    from_dir = parse_files(_from_dir(repo))
+    assert [d.id for d in from_zip] == ["sigma:11111111-2222-3333-4444-555555555555"]
+    assert from_zip == from_dir
+    assert from_zip[0].url.endswith("/rules/windows/a.yml")
 
 
 def test_certfr_parse():

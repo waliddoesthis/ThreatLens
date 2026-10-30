@@ -13,3 +13,23 @@
 {"id": "q013", "type": "cve", "question": "Log4Shell remote code execution in Apache Log4j", "gold_ids": ["kev:CVE-2021-44228"]}
 {"id": "q014", "type": "cve", "question": "Citrix NetScaler session token leak known as Citrix Bleed", "gold_ids": ["kev:CVE-2023-4966"]}
 {"id": "q015", "type": "cve", "question": "MOVEit Transfer SQL injection exploited by ransomware groups", "gold_ids": ["kev:CVE-2023-34362"]}
+{"id": "q016", "type": "technique", "question": "Forging Kerberos TGTs with the krbtgt account hash", "gold_ids": ["attack:T1558.001"]}
+{"id": "q017", "type": "technique", "question": "Attacker impersonates a domain controller to replicate password hashes", "gold_ids": ["attack:T1003.006"]}
+{"id": "q018", "type": "technique", "question": "Data exfiltration to cloud storage like Dropbox or Google Drive", "gold_ids": ["attack:T1567.002"]}
+{"id": "q019", "type": "technique", "question": "Malware writes its code into the memory of another running process", "gold_ids": ["attack:T1055"]}
+{"id": "q020", "type": "technique", "question": "Deleting backups and shadow copies so the victim cannot restore", "gold_ids": ["attack:T1490"]}
+{"id": "q021", "type": "cve", "question": "ProxyLogon SSRF in Microsoft Exchange", "gold_ids": ["kev:CVE-2021-26855"]}
+{"id": "q022", "type": "cve", "question": "EternalBlue SMBv1 exploit used by WannaCry", "gold_ids": ["kev:CVE-2017-0144"]}
+{"id": "q023", "type": "cve", "question": "PrintNightmare Windows Print Spooler RCE", "gold_ids": ["kev:CVE-2021-34527"]}
+{"id": "q024", "type": "cve", "question": "Zerologon Netlogon privilege escalation to domain admin", "gold_ids": ["kev:CVE-2020-1472"]}
+{"id": "q025", "type": "cve", "question": "FortiOS SSL VPN path traversal leaking credentials", "gold_ids": ["kev:CVE-2018-13379"]}
+{"id": "q026", "type": "detection", "question": "Sigma rule for dumping LSASS with comsvcs.dll MiniDump via rundll32", "gold_ids": ["sigma:a49fa4d5-11db-418c-8473-1e014a8dd462"]}
+{"id": "q027", "type": "detection", "question": "How do I detect Kerberoasting in Windows security event logs?", "gold_ids": ["sigma:d04ae2b8-ad54-4de0-bd87-4bc1da66aa59"]}
+{"id": "q028", "type": "detection", "question": "Detect certutil used to download a file from the internet", "gold_ids": ["sigma:19b08b1c-861d-4e75-a1ef-ea0c1baf202b"]}
+{"id": "q029", "type": "detection", "question": "Detection for vssadmin delete shadows run by ransomware", "gold_ids": ["sigma:c947b146-0abc-4c87-9c64-b17e9d7274a2"]}
+{"id": "q030", "type": "detection", "question": "powershell.exe -enc JABzAD0A... base64 encoded command line, which rule fires?", "gold_ids": ["sigma:ca2092a1-c273-4878-9b4b-0d60115bf5ea"]}
+{"id": "q031", "type": "detection", "question": "Rule that alerts when schtasks.exe /create is used to make a scheduled task", "gold_ids": ["sigma:92626ddd-662c-49e3-ac59-f6535f12d189"]}
+{"id": "q032", "type": "detection", "question": "Detect mimikatz sekurlsa::logonpasswords on the command line", "gold_ids": ["sigma:a642964e-bead-4bed-8910-1bb4d63e3b4d"]}
+{"id": "q033", "type": "detection", "question": "procdump -ma lsass.exe detection", "gold_ids": ["sigma:5afee48e-67dd-4e03-a783-f74259dcf998"]}
+{"id": "q034", "type": "detection", "question": "Detect bitsadmin /transfer downloading a payload", "gold_ids": ["sigma:d059842b-6b9d-4ed1-b5c3-5b89143c6ede"]}
+{"id": "q035", "type": "detection", "question": "Sigma rule for ntdsutil being used to dump the AD database", "gold_ids": ["sigma:e6e88853-5f20-4c4a-8d26-cd469fd8d31f"]}
