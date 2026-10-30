@@ -11,14 +11,14 @@ Tick boxes as you go. Each milestone ends with something measurable for the READ
 - [x] Ingest MITRE ATT&CK (techniques, sub-techniques, mitigations)
 - [x] Ingest CISA KEV
 - [x] BM25-only index + baseline eval (`--sparse-only`, `--modes bm25`)
-- [ ] Ingest SigmaHQ rules
-- [ ] Ingest CERT-FR advisories (RSS)
-- [ ] NVD lookup on demand for CVE ids not in KEV
+- [x] Ingest SigmaHQ rules — 3,161 rules (archive, git-clone fallback)
+- [ ] Ingest CERT-FR advisories (RSS) — parser tested; feed moved to cert.cyber.gouv.fr
+- [x] NVD lookup on demand for CVE ids not in KEV
 - [ ] Chunking + dense index (Qdrant local) + BM25 index
 - [ ] Hybrid retrieval with RRF + reranker
 - [ ] Generation with citations (Ollama small model)
 - [ ] FastAPI `/ask` + Streamlit UI with clickable sources
-- [ ] Dockerfile + docker-compose
+- [x] Dockerfile + docker-compose (CPU torch, health checks)
 **Deliverable:** demo GIF of 3 queries answered with sources.
 
 ## M2 — Evaluation (week 2)

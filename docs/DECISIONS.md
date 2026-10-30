@@ -26,3 +26,23 @@ One entry per non-trivial choice. These are your interview answers.
 - **Alternatives:** always load both.
 - **Why:** BM25 runs (CI, quick baselines, machines without model access) shouldn't need a ~130 MB model download. Hybrid behaviour is unchanged.
 - **BM25 baseline (15 seed questions; 750 ATT&CK + 1,762 KEV docs, 2,785 chunks):** Recall@5 0.800, Recall@10 0.933, MRR@10 0.672, nDCG@10 0.733.
+
+## 2026-10-30 — Sigma ingest falls back to `git clone`
+- **Decision:** try the `master.zip` archive first; on an HTTP error, shallow-clone `SigmaHQ/sigma` into `data/raw/sigma` and read `rules/**.yml` from disk. Both paths feed the same `parse_files()`.
+- **Alternatives:** archive only; GitHub API listing + raw file downloads (thousands of requests).
+- **Why:** some egress proxies allow git but refuse `codeload.github.com`. A test checks the zip and the checkout produce identical documents.
+- **Corpus now:** 750 ATT&CK + 1,764 KEV + 3,161 Sigma docs → 6,110 chunks. Only `rules/` is indexed; `rules-emerging-threats`, `rules-threat-hunting` and `deprecated/` are left out for now.
+
+## 2026-10-30 — CERT-FR moved to cert.cyber.gouv.fr
+- **Finding:** `www.cert.ssi.gouv.fr/feed/` now 302-redirects to `cert.cyber.gouv.fr/feed/`.
+- **Decision:** point the ingester at the new host directly so allow-lists only need one domain.
+
+## 2026-10-30 — Benchmark grows to 35 questions, incl. detection
+- **Decision:** add 20 questions: 5 ATT&CK paraphrases, 5 CVE nicknames (ProxyLogon, EternalBlue, PrintNightmare, Zerologon, FortiOS path traversal) and 10 "which Sigma rule detects X" questions with a single gold rule each.
+- **Why:** with Sigma in the index, ATT&CK questions now compete with hundreds of rules that repeat the same keywords, so detection questions are needed to measure that the right *kind* of document comes back.
+- **Effect on BM25 (35 q, 6,110 chunks):** Recall@5 0.686, Recall@10 0.857, MRR@10 0.542, nDCG@10 0.617 — lower than the 15-question ATT&CK+KEV baseline (R@5 0.80) because a bigger corpus adds keyword-matching distractors (e.g. "LSASS" questions now rank 10 Sigma rules above T1003.001).
+- **Results are committed** under `eval/results/` (no longer git-ignored) so each number in the README has a file behind it.
+
+## 2026-10-30 — Docker image: CPU torch, no apt
+- **Decision:** install torch from the CPU wheel index (`TORCH_INDEX_URL` build arg) and skip `apt-get`; health checks use Python's `urllib` instead of curl.
+- **Why:** CUDA wheels make the image ~6 GB for no benefit on CPU hosts (App Runner / Container Apps). No apt keeps builds working behind proxies that block Debian mirrors. Ingest runs on the host or in a one-off `docker compose run`, writing to the mounted `./data` volume.
