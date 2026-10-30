@@ -1,4 +1,4 @@
-"""Retrieval ablation: bm25 / dense / hybrid / hybrid+rerank.
+"""Retrieval ablation: bm25 / dense / hybrid / hybrid+rerank / hybrid+rerank+rrf.
 
 python eval/run_retrieval_eval.py [--modes bm25 dense ...]  ->  eval/results/retrieval.md (+ .json)
 """
@@ -12,17 +12,19 @@ from statistics import mean
 sys.path.insert(0, str(Path(__file__).parent))
 from metrics import dedupe, mrr_at_k, ndcg_at_k, recall_at_k  # noqa: E402
 
+from threatlens.config import settings  # noqa: E402
 from threatlens.retrieval.hybrid import get_retriever  # noqa: E402
 
 HERE = Path(__file__).parent
-MODES = ["bm25", "dense", "hybrid", "hybrid+rerank"]
+MODES = ["bm25", "dense", "hybrid", "hybrid+rerank", "hybrid+rerank+rrf"]
 
 
 def ranked_doc_ids(retriever, q: str, mode: str) -> list[str]:
-    if mode == "hybrid+rerank":
+    if mode.startswith("hybrid+rerank"):
         from threatlens.retrieval.rerank import rerank
 
-        res = rerank(q, retriever.search(q, 30, "hybrid"), top_k=10)
+        fuse = mode.endswith("+rrf")
+        res = rerank(q, retriever.search(q, 30, "hybrid"), top_k=10, fuse=fuse)
     else:
         res = retriever.search(q, 30, mode)
     return dedupe([r.chunk.doc_id for r in res])
@@ -66,14 +68,19 @@ def main() -> None:
 
     out = HERE / "results"
     out.mkdir(exist_ok=True)
-    (out / "retrieval.json").write_text(json.dumps(rows, indent=2))
+    # qdrant is the reference run; other stores get their own files to compare against it
+    stem = (
+        "retrieval" if settings.vector_store == "qdrant" else f"retrieval-{settings.vector_store}"
+    )
+    (out / f"{stem}.json").write_text(json.dumps(rows, indent=2))
     md = ["| Mode | Recall@5 | Recall@10 | MRR@10 | nDCG@10 |", "|---|---|---|---|---|"]
     md += [
         f"| {r['mode']} | {r['recall@5']:.3f} | {r['recall@10']:.3f} | {r['mrr@10']:.3f} "
         f"| {r['ndcg@10']:.3f} |"
         for r in rows
     ]
-    (out / "retrieval.md").write_text(f"n = {len(qs)} questions\n\n" + "\n".join(md) + "\n")
+    header = f"n = {len(qs)} questions, vector store: {settings.vector_store}\n\n"
+    (out / f"{stem}.md").write_text(header + "\n".join(md) + "\n")
     print("\n".join(md))
 
 

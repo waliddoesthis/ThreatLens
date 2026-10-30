@@ -1,3 +1,5 @@
+# Indexes live in ./data (build them first: `make ingest index`, or
+# `docker compose run --rm api sh -c "python -m threatlens.ingest.run && python -m threatlens.index.build"`).
 services:
   api:
     build: .
@@ -15,8 +17,12 @@ services:
     env_file: .env
     environment:
       - THREATLENS_API_URL=http://api:8000
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health')"]
     ports: ["8501:8501"]
-    depends_on: [api]
+    depends_on:
+      api:
+        condition: service_healthy
 
   ollama:
     image: ollama/ollama:latest
