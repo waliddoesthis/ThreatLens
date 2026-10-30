@@ -1,4 +1,4 @@
-"""Retrieval ablation: bm25 / dense / hybrid / hybrid+rerank.
+"""Retrieval ablation: bm25 / dense / hybrid / hybrid+rerank / hybrid+rerank+rrf.
 
 python eval/run_retrieval_eval.py [--modes bm25 dense ...]  ->  eval/results/retrieval.md (+ .json)
 """
@@ -15,14 +15,15 @@ from metrics import dedupe, mrr_at_k, ndcg_at_k, recall_at_k  # noqa: E402
 from threatlens.retrieval.hybrid import get_retriever  # noqa: E402
 
 HERE = Path(__file__).parent
-MODES = ["bm25", "dense", "hybrid", "hybrid+rerank"]
+MODES = ["bm25", "dense", "hybrid", "hybrid+rerank", "hybrid+rerank+rrf"]
 
 
 def ranked_doc_ids(retriever, q: str, mode: str) -> list[str]:
-    if mode == "hybrid+rerank":
+    if mode.startswith("hybrid+rerank"):
         from threatlens.retrieval.rerank import rerank
 
-        res = rerank(q, retriever.search(q, 30, "hybrid"), top_k=10)
+        fuse = mode.endswith("+rrf")
+        res = rerank(q, retriever.search(q, 30, "hybrid"), top_k=10, fuse=fuse)
     else:
         res = retriever.search(q, 30, mode)
     return dedupe([r.chunk.doc_id for r in res])
