@@ -31,7 +31,7 @@ One entry per non-trivial choice. These are your interview answers.
 - **Decision:** try the `master.zip` archive first; on an HTTP error, shallow-clone `SigmaHQ/sigma` into `data/raw/sigma` and read `rules/**.yml` from disk. Both paths feed the same `parse_files()`.
 - **Alternatives:** archive only; GitHub API listing + raw file downloads (thousands of requests).
 - **Why:** some egress proxies allow git but refuse `codeload.github.com`. A test checks the zip and the checkout produce identical documents.
-- **Corpus now:** 750 ATT&CK + 1,764 KEV + 3,161 Sigma docs → 6,110 chunks. Only `rules/` is indexed; `rules-emerging-threats`, `rules-threat-hunting` and `deprecated/` are left out for now.
+- **Corpus at this step:** 750 ATT&CK + 1,764 KEV + 3,161 Sigma docs → 6,110 chunks. Only `rules/` is indexed; `rules-emerging-threats`, `rules-threat-hunting` and `deprecated/` are left out for now.
 
 ## 2026-10-30 — CERT-FR moved to cert.cyber.gouv.fr
 - **Finding:** `www.cert.ssi.gouv.fr/feed/` now 302-redirects to `cert.cyber.gouv.fr/feed/`.
@@ -46,3 +46,19 @@ One entry per non-trivial choice. These are your interview answers.
 ## 2026-10-30 — Docker image: CPU torch, no apt
 - **Decision:** install torch from the CPU wheel index (`TORCH_INDEX_URL` build arg) and skip `apt-get`; health checks use Python's `urllib` instead of curl.
 - **Why:** CUDA wheels make the image ~6 GB for no benefit on CPU hosts (App Runner / Container Apps). No apt keeps builds working behind proxies that block Debian mirrors. Ingest runs on the host or in a one-off `docker compose run`, writing to the mounted `./data` volume.
+
+## 2026-10-30 — Fuse the reranker with the hybrid order instead of replacing it
+- **Finding (35 q, 5,715 docs, 6,150 chunks):**
+
+  | Mode | Recall@5 | Recall@10 | MRR@10 | nDCG@10 |
+  |---|---|---|---|---|
+  | bm25 | 0.686 | 0.857 | 0.547 | 0.620 |
+  | dense (bge-small-en-v1.5) | 0.914 | 0.971 | 0.750 | 0.804 |
+  | hybrid (RRF) | 0.943 | 1.000 | 0.746 | 0.809 |
+  | hybrid + rerank (bge-reranker-base) | 0.857 | 0.914 | 0.683 | 0.739 |
+  | hybrid + rerank, RRF-fused | 0.943 | 0.971 | 0.801 | 0.844 |
+
+  Hybrid confirms the RRF decision above: BM25 misses paraphrases, dense misses some exact tool names, together they find every gold doc in the top 10. The pure cross-encoder *hurts*: for "How do attackers abuse PowerShell…" it ranks narrow Sigma PowerShell rules above T1059.001, and for "EternalBlue…" it prefers the SMBv1 mitigation over the KEV entry. It scores topical overlap, not "is this the canonical answer".
+- **Decision:** `rerank()` RRF-fuses the cross-encoder order with the incoming hybrid order (`RERANK_FUSION=true`, default). Pure reranking stays available (`fuse=False`) and in the ablation.
+- **Alternatives:** drop the reranker (simpler, MRR 0.746); a larger reranker (bge-reranker-v2-m3, ~2.3 GB, slower on CPU); per-source quotas in the final top-k.
+- **Caveat:** 35 questions is small and this choice was made on the same set — re-check on the 100+ question benchmark in M2 before claiming it in the README.

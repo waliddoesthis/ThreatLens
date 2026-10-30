@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     embedding_model: str = "BAAI/bge-small-en-v1.5"
     reranker_model: str = "BAAI/bge-reranker-base"
     use_reranker: bool = True
+    rerank_fusion: bool = True  # RRF(hybrid order, cross-encoder order)
     top_k_retrieve: int = 30
     top_k_final: int = 6
     chunk_size_words: int = 220
