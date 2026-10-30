@@ -23,7 +23,7 @@ Details: [docs/SPEC.md](docs/SPEC.md)
 git clone https://github.com/waliddoesthis/threatlens && cd threatlens
 python -m venv .venv && source .venv/bin/activate
 make install
-cp .env.example .env          # set your model names / API key
+cp .env.example .env          # set your model names / API key; VECTOR_STORE=qdrant|chroma
 ollama pull llama3.1:8b       # local small model (https://ollama.com)
 make ingest                   # download ATT&CK, KEV, Sigma, CERT-FR
 make index                    # build indexes
@@ -44,6 +44,7 @@ Retrieval on 35 benchmark questions (ATT&CK techniques, CVE nicknames, "which Si
 Takeaways:
 - **Hybrid beats either retriever alone.** BM25 misses paraphrases ("Citrix Bleed", "EternalBlue"); dense misses some exact tool names. Fused, every gold document is in the top 10.
 - **A reranker is not a free win.** The cross-encoder alone ranks narrow Sigma rules above the ATT&CK technique a question is about. Fusing its order with the hybrid order keeps recall and lifts MRR by 0.055.
+- **Qdrant or Chroma**, same scores: set `VECTOR_STORE=chroma` and rebuild ([results](eval/results/retrieval-chroma.md)).
 - Caveat: 35 questions, and the fusion choice was made on them. M2 re-checks it on a 100+ question set.
 
 _Coming in M2–M4: answer faithfulness, router Pareto front, prompt-injection ASR._

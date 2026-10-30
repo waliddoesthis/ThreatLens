@@ -9,7 +9,7 @@ from functools import lru_cache
 import numpy as np
 
 from threatlens.config import settings
-from threatlens.index import COLLECTION, tokenize
+from threatlens.index import tokenize
 from threatlens.schema import Chunk, RetrievedChunk
 
 
@@ -30,16 +30,17 @@ class HybridRetriever:
         with (idx / "bm25.pkl").open("rb") as f:
             self.bm25 = pickle.load(f)
         self._encoder = None
-        self._qdrant = None
+        self._store = None
 
     def _load_dense(self) -> None:
         # loaded on first dense query, so BM25-only runs need no model download
         if self._encoder is None:
-            from qdrant_client import QdrantClient
             from sentence_transformers import SentenceTransformer
 
+            from threatlens.index.vectorstore import get_store
+
             self._encoder = SentenceTransformer(settings.embedding_model)
-            self._qdrant = QdrantClient(path=str(settings.index_dir / "qdrant"))
+            self._store = get_store()
 
     def bm25_search(self, query: str, k: int) -> list[int]:
         scores = self.bm25.get_scores(tokenize(query))
@@ -53,8 +54,7 @@ class HybridRetriever:
             "Represent this sentence for searching relevant passages: " + query,
             normalize_embeddings=True,
         )
-        res = self._qdrant.query_points(COLLECTION, query=qv.tolist(), limit=k)
-        return [int(p.id) for p in res.points]
+        return self._store.search(qv, k)
 
     def search(
         self, query: str, k: int | None = None, mode: str = "hybrid"

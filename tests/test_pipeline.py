@@ -85,3 +85,25 @@ def test_rerank_fusion_keeps_first_stage_signal(monkeypatch):
     # equal-rank sums tie; the hybrid #1 must not drop to last as it does with pure reranking
     assert fused[-1].chunk.doc_id not in ("attack:T0", "attack:T4")
     assert all(c.stage == "rerank" for c in fused)
+
+
+def test_vector_stores_agree(tmp_path):
+    import numpy as np
+    import pytest
+
+    from threatlens.index.vectorstore import STORES
+
+    rng = np.random.default_rng(0)
+    vecs = rng.normal(size=(50, 8)).astype("float32")
+    vecs /= np.linalg.norm(vecs, axis=1, keepdims=True)
+    results = {}
+    for name, cls in STORES.items():
+        pytest.importorskip({"qdrant": "qdrant_client", "chroma": "chromadb"}[name])
+        store = cls(tmp_path / name)
+        store.reset(8)
+        store.add(list(range(50)), vecs)
+        results[name] = store.search(vecs[7], 3)
+        store.close()
+    assert all(r[0] == 7 for r in results.values())
+    if len(results) == 2:
+        assert results["qdrant"] == results["chroma"]
