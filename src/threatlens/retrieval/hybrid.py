@@ -24,16 +24,22 @@ def rrf(rankings: list[list[int]], k: int = 60) -> list[tuple[int, float]]:
 
 class HybridRetriever:
     def __init__(self) -> None:
-        from qdrant_client import QdrantClient
-        from sentence_transformers import SentenceTransformer
-
         idx = settings.index_dir
         with (idx / "chunks.jsonl").open(encoding="utf-8") as f:
             self.chunks = [Chunk(**json.loads(line)) for line in f]
         with (idx / "bm25.pkl").open("rb") as f:
             self.bm25 = pickle.load(f)
-        self.encoder = SentenceTransformer(settings.embedding_model)
-        self.qdrant = QdrantClient(path=str(idx / "qdrant"))
+        self._encoder = None
+        self._qdrant = None
+
+    def _load_dense(self) -> None:
+        # loaded on first dense query, so BM25-only runs need no model download
+        if self._encoder is None:
+            from qdrant_client import QdrantClient
+            from sentence_transformers import SentenceTransformer
+
+            self._encoder = SentenceTransformer(settings.embedding_model)
+            self._qdrant = QdrantClient(path=str(settings.index_dir / "qdrant"))
 
     def bm25_search(self, query: str, k: int) -> list[int]:
         scores = self.bm25.get_scores(tokenize(query))
@@ -41,12 +47,13 @@ class HybridRetriever:
         return [int(i) for i in top if scores[i] > 0]
 
     def dense_search(self, query: str, k: int) -> list[int]:
+        self._load_dense()
         # bge models recommend this instruction prefix for queries
-        qv = self.encoder.encode(
+        qv = self._encoder.encode(
             "Represent this sentence for searching relevant passages: " + query,
             normalize_embeddings=True,
         )
-        res = self.qdrant.query_points(COLLECTION, query=qv.tolist(), limit=k)
+        res = self._qdrant.query_points(COLLECTION, query=qv.tolist(), limit=k)
         return [int(p.id) for p in res.points]
 
     def search(
