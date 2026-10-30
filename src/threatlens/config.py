@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     large_model: str = "anthropic/claude-sonnet-4-5"
 
     # Retrieval
+    vector_store: str = "qdrant"  # qdrant | chroma
     embedding_model: str = "BAAI/bge-small-en-v1.5"
     reranker_model: str = "BAAI/bge-reranker-base"
     use_reranker: bool = True

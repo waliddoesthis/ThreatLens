@@ -62,3 +62,9 @@ One entry per non-trivial choice. These are your interview answers.
 - **Decision:** `rerank()` RRF-fuses the cross-encoder order with the incoming hybrid order (`RERANK_FUSION=true`, default). Pure reranking stays available (`fuse=False`) and in the ablation.
 - **Alternatives:** drop the reranker (simpler, MRR 0.746); a larger reranker (bge-reranker-v2-m3, ~2.3 GB, slower on CPU); per-source quotas in the final top-k.
 - **Caveat:** 35 questions is small and this choice was made on the same set — re-check on the 100+ question benchmark in M2 before claiming it in the README.
+
+## 2026-10-30 — Pluggable vector store: Qdrant (default) or Chroma
+- **Decision:** `index/vectorstore.py` puts Qdrant and Chroma behind one 4-method interface (`reset/add/search/close`); `VECTOR_STORE=qdrant|chroma` picks one for both `make index` and the retriever. Chunk positions are the point ids, so BM25, RRF and the reranker are unchanged.
+- **Why both:** Walid wants the project to run on Chroma too. Qdrant stays the default (same client for embedded and server mode, payload filters, sparse vectors for later).
+- **Finding:** Chroma's HNSW is approximate while Qdrant's local mode searches exactly. With Chroma's defaults (ef_search 100) dense Recall@5 was 0.886 vs 0.914, because neighbours were missed (e.g. only 13 of the top 30 shared for "ProxyLogon…"). `ef_search=200` closes the gap.
+- **Result (35 q):** dense and hybrid identical on both stores (R@5 0.914 / 0.943). Rerank modes differ by ≤0.014 MRR from tiny ordering differences deep in the 30 candidates. Files: `eval/results/retrieval.md` (Qdrant), `eval/results/retrieval-chroma.md`.
