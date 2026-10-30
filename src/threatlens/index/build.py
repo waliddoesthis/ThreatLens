@@ -1,7 +1,7 @@
 """Build the dense (Qdrant local) and sparse (BM25) indexes.
 
 python -m threatlens.index.build [--sparse-only]
-Outputs in data/index/: chunks.jsonl, bm25.pkl, qdrant/
+Outputs in data/index/: chunks.jsonl, bm25.pkl, and qdrant/ or chroma/ (VECTOR_STORE)
 """
 
 import argparse
@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 from threatlens.chunking import chunk_document
 from threatlens.config import settings
-from threatlens.index import COLLECTION, tokenize
+from threatlens.index import tokenize
 from threatlens.schema import Chunk, read_jsonl
 
 
@@ -47,30 +47,20 @@ def build(sparse_only: bool = False) -> None:
     if sparse_only:
         return
 
-    from qdrant_client import QdrantClient, models
     from sentence_transformers import SentenceTransformer
+
+    from threatlens.index.vectorstore import get_store
 
     # Dense
     model = SentenceTransformer(settings.embedding_model)
-    dim = model.get_sentence_embedding_dimension()
-    client = QdrantClient(path=str(out / "qdrant"))
-    if client.collection_exists(COLLECTION):
-        client.delete_collection(COLLECTION)
-    client.create_collection(
-        COLLECTION, vectors_config=models.VectorParams(size=dim, distance=models.Distance.COSINE)
-    )
+    store = get_store()
+    store.reset(model.get_sentence_embedding_dimension())
     batch = 256
-    for i in tqdm(range(0, len(chunks), batch), desc="embedding"):
+    for i in tqdm(range(0, len(chunks), batch), desc=f"embedding -> {settings.vector_store}"):
         part = chunks[i : i + batch]
         vecs = model.encode([c.text for c in part], normalize_embeddings=True)
-        client.upsert(
-            COLLECTION,
-            points=[
-                models.PointStruct(id=i + j, vector=v.tolist(), payload={"chunk_id": c.chunk_id})
-                for j, (c, v) in enumerate(zip(part, vecs, strict=True))
-            ],
-        )
-    client.close()
+        store.add(list(range(i, i + len(part))), vecs)
+    store.close()
     print("Dense index done")
 
 

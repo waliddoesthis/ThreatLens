@@ -8,7 +8,7 @@ All public. Check each licence before redistributing data; the repo ships **code
 | CISA KEV | CVEs known to be exploited in the wild | https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json (mirror: github.com/cisagov/kev-data) | JSON | US Gov public domain |
 | NVD | CVE descriptions, CVSS, CWE | https://services.nvd.nist.gov/rest/json/cves/2.0 | JSON API (rate-limited; API key recommended) | public, NVD terms |
 | SigmaHQ | detection rules (YAML) | https://github.com/SigmaHQ/sigma (archive of `master`) | YAML | Detection Rule License (DRL) 1.1 |
-| CERT-FR | French security advisories (avis, alertes) | https://www.cert.ssi.gouv.fr/feed/ | RSS | Licence Ouverte / Etalab |
+| CERT-FR | French security advisories (avis, alertes) | https://cert.cyber.gouv.fr/feed/ (formerly www.cert.ssi.gouv.fr) | RSS | Licence Ouverte / Etalab |
 
 Optional later: FIRST EPSS scores (https://api.first.org/data/v1/epss) for exploit probability; MITRE CAPEC; ANSSI guides.
 
