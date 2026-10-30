@@ -16,8 +16,8 @@ Tick boxes as you go. Each milestone ends with something measurable for the READ
 - [x] NVD lookup on demand for CVE ids not in KEV
 - [x] Chunking + dense index (Qdrant local) + BM25 index — 6,150 chunks, ~3 min on 4 CPUs
 - [x] Hybrid retrieval with RRF + reranker — R@5 0.686 (BM25) → 0.943 (hybrid), MRR 0.547 → 0.801 (hybrid + fused rerank)
-- [ ] Generation with citations (Ollama small model)
-- [ ] FastAPI `/ask` + Streamlit UI with clickable sources
+- [x] Generation with citations (Ollama small model) — llama3.1:8b on a local GPU, cites ATT&CK + Sigma ids
+- [x] FastAPI `/ask` + Streamlit UI with clickable sources
 - [x] Dockerfile + docker-compose (CPU torch, health checks)
 **Deliverable:** demo GIF of 3 queries answered with sources.
 
