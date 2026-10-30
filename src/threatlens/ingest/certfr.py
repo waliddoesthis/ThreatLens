@@ -1,7 +1,7 @@
 """CERT-FR advisories (avis / alertes) from the public RSS feed.
 
 The RSS only holds recent items. For a bigger corpus, a later step can crawl
-https://www.cert.ssi.gouv.fr/avis/ pages politely (rate-limit, respect robots.txt).
+https://cert.cyber.gouv.fr/avis/ pages politely (rate-limit, respect robots.txt).
 """
 
 import re
@@ -12,7 +12,8 @@ import httpx
 from threatlens.ingest import USER_AGENT, processed_path
 from threatlens.schema import Document, write_jsonl
 
-URL = "https://www.cert.ssi.gouv.fr/feed/"
+# CERT-FR moved from www.cert.ssi.gouv.fr (now a redirect) to cert.cyber.gouv.fr in 2026
+URL = "https://cert.cyber.gouv.fr/feed/"
 _TAGS = re.compile(r"<[^>]+>")
 
 
