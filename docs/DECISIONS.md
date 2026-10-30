@@ -20,3 +20,9 @@ One entry per non-trivial choice. These are your interview answers.
 - **Finding:** the current ATT&CK release renumbered "Clear Windows Event Logs" (T1070.001 → T1685.005); a stale gold label silently counts as a miss.
 - **Decision:** `eval/run_retrieval_eval.py` warns when a gold id is absent from the index. Re-check labels after each ATT&CK update.
 - **First baseline (BM25 only, 15 seed questions, ATT&CK + KEV):** Recall@5 ≈ 0.73–0.80, MRR@10 ≈ 0.60. Misses are paraphrases with no shared keywords (e.g. "Log4Shell", "Citrix Bleed") — exactly what dense retrieval should fix.
+
+## 2026-10-29 — Lazy-load the dense side of the retriever
+- **Decision:** `HybridRetriever` loads the embedding model and Qdrant on the first dense query; `index.build --sparse-only` and `run_retrieval_eval.py --modes bm25` skip them.
+- **Alternatives:** always load both.
+- **Why:** BM25 runs (CI, quick baselines, machines without model access) shouldn't need a ~130 MB model download. Hybrid behaviour is unchanged.
+- **BM25 baseline (15 seed questions; 750 ATT&CK + 1,762 KEV docs, 2,785 chunks):** Recall@5 0.800, Recall@10 0.933, MRR@10 0.672, nDCG@10 0.733.

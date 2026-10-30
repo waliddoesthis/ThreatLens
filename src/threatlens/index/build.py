@@ -1,9 +1,10 @@
 """Build the dense (Qdrant local) and sparse (BM25) indexes.
 
-python -m threatlens.index.build
+python -m threatlens.index.build [--sparse-only]
 Outputs in data/index/: chunks.jsonl, bm25.pkl, qdrant/
 """
 
+import argparse
 import json
 import pickle
 from dataclasses import asdict
@@ -28,10 +29,7 @@ def load_chunks() -> list[Chunk]:
     return chunks
 
 
-def build() -> None:
-    from qdrant_client import QdrantClient, models
-    from sentence_transformers import SentenceTransformer
-
+def build(sparse_only: bool = False) -> None:
     out = settings.index_dir
     out.mkdir(parents=True, exist_ok=True)
     chunks = load_chunks()
@@ -46,6 +44,11 @@ def build() -> None:
     with (out / "bm25.pkl").open("wb") as f:
         pickle.dump(bm25, f)
     print("BM25 index done")
+    if sparse_only:
+        return
+
+    from qdrant_client import QdrantClient, models
+    from sentence_transformers import SentenceTransformer
 
     # Dense
     model = SentenceTransformer(settings.embedding_model)
@@ -72,4 +75,6 @@ def build() -> None:
 
 
 if __name__ == "__main__":
-    build()
+    p = argparse.ArgumentParser()
+    p.add_argument("--sparse-only", action="store_true", help="BM25 only, no embedding model")
+    build(p.parse_args().sparse_only)

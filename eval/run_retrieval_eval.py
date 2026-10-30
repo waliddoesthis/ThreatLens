@@ -1,8 +1,9 @@
 """Retrieval ablation: bm25 / dense / hybrid / hybrid+rerank.
 
-python eval/run_retrieval_eval.py  ->  eval/results/retrieval.md (+ .json)
+python eval/run_retrieval_eval.py [--modes bm25 dense ...]  ->  eval/results/retrieval.md (+ .json)
 """
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -28,6 +29,9 @@ def ranked_doc_ids(retriever, q: str, mode: str) -> list[str]:
 
 
 def main() -> None:
+    p = argparse.ArgumentParser()
+    p.add_argument("--modes", nargs="*", choices=MODES, default=MODES)
+    modes = p.parse_args().modes
     qs = [
         json.loads(line)
         for line in (HERE / "questions.jsonl").open(encoding="utf-8")
@@ -40,7 +44,7 @@ def main() -> None:
         if missing:  # e.g. ATT&CK renumbers techniques between releases
             print(f"[warn] {q['id']}: gold ids not in corpus: {sorted(missing)}")
     rows = []
-    for mode in MODES:
+    for mode in modes:
         r5, r10, mrr, ndcg = [], [], [], []
         for q in qs:
             gold = set(q["gold_ids"])
