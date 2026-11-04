@@ -68,3 +68,79 @@ One entry per non-trivial choice. These are your interview answers.
 - **Why both:** Walid wants the project to run on Chroma too. Qdrant stays the default (same client for embedded and server mode, payload filters, sparse vectors for later).
 - **Finding:** Chroma's HNSW is approximate while Qdrant's local mode searches exactly. With Chroma's defaults (ef_search 100) dense Recall@5 was 0.886 vs 0.914, because neighbours were missed (e.g. only 13 of the top 30 shared for "ProxyLogon…"). `ef_search=200` closes the gap.
 - **Result (35 q):** dense and hybrid identical on both stores (R@5 0.914 / 0.943). Rerank modes differ by ≤0.014 MRR from tiny ordering differences deep in the 30 candidates. Files: `eval/results/retrieval.md` (Qdrant), `eval/results/retrieval-chroma.md`.
+
+## 2026-11-04 — Benchmark grows to 117 questions, scored per question type
+- **Decision:** add 82 questions (q036–q117): 35 ATT&CK paraphrases, 6 mitigations, 16 CVE nicknames (Spring4Shell, Follina, ProxyNotShell, noPac…), 10 detection questions, 5 raw alerts / log lines, 5 CERT-FR questions and 5 French paraphrases of English ATT&CK questions. Four questions have 2–3 gold docs (ProxyNotShell, the Ivanti chain, noPac, DCSync rules). Every gold id was checked against the corpus before committing.
+- **Why these types:** CLAUDE.md promises "a question, an alert, a log line or a CVE id"; alerts and French queries were not measured at all before. `run_retrieval_eval.py` now reports metrics per type, because an average over 117 questions hides a type that fails completely.
+- **Stale labels:** CERT-FR's feed keeps only ~40 recent advisories and ATT&CK renumbers techniques, so the eval drops gold ids that are no longer in the corpus (with a warning) instead of counting them as misses. The CERT-FR questions are tied to the 2026-11-03 snapshot.
+
+## 2026-11-04 — Strip ATT&CK "(Citation: …)" markers at ingest
+- **Finding:** the first answer-eval run showed llama3.2:3b citing `([Citation: TechNet PowerShell])` instead of `[attack:T1059.001]`. ATT&CK descriptions carry STIX citation markers (679 of 750 docs) and markdown links, and a small model copies the format it sees in its sources over the one in the system prompt.
+- **Decision:** `ingest.clean_stix_text()` removes `(Citation: X)` and unwraps `[text](url)` in ATT&CK descriptions/detections and Sigma descriptions.
+- **Side effect on retrieval (117 q, hybrid + fused rerank):** R@5 0.893 → 0.910, MRR@10 0.759 → 0.741. The markers were noise for BM25 and the embeddings; the MRR drop is a few gold docs moving from rank 1 to 2. All numbers below are on the cleaned corpus.
+
+## 2026-11-04 — Fused reranking confirmed on the 117-question set
+- **Finding (117 q, 5,718 docs, cleaned corpus):**
+
+  | Mode | Recall@5 | Recall@10 | MRR@10 | nDCG@10 |
+  |---|---|---|---|---|
+  | bm25 | 0.742 | 0.843 | 0.615 | 0.665 |
+  | dense | 0.877 | 0.903 | 0.738 | 0.773 |
+  | hybrid (RRF) | 0.893 | 0.936 | 0.738 | 0.783 |
+  | hybrid + rerank | 0.850 | 0.919 | 0.711 | 0.758 |
+  | hybrid + rerank, RRF-fused | **0.910** | **0.936** | **0.741** | **0.787** |
+
+- The October choice (made on 35 questions) holds on 82 unseen ones: the fused reranker is the best or tied-best mode on every metric, and the pure cross-encoder is still worse than no reranker. The margin over plain hybrid is small (+0.017 R@5, ≈2 questions), so the reranker earns its latency mostly on the top 5 the LLM sees.
+- **Where it fails:** French questions score **0** in every mode. The corpus is English except CERT-FR, BM25 shares no tokens with "rançongiciel" or "hameçonnage", and bge-small-en is English-only. Raw alerts (R@5 0.70) are the next weakest: a command line like `rundll32 comsvcs.dll, MiniDump` is matched to Sigma rules but not to the ATT&CK technique. Both feed the embedding ablation below.
+
+## 2026-11-04 — Chunk size and embedding model: keep 220 words and bge-small
+- **Setup:** `eval/run_ablation.py` builds one index per config under `data/index-ablation/` and scores dense, hybrid and hybrid + fused rerank on the 117 questions (cleaned corpus). Results: `eval/results/ablation.md`.
+- **Chunk size (bge-small, overlap ~18%), hybrid + fused rerank:** 120 words R@5 0.897 / MRR 0.760 (7,293 chunks); 220 words 0.910 / 0.741 (6,100); 400 words 0.910 / 0.755 (5,803). The spread is ≤0.014 on every metric, about 1–2 questions. Most ATT&CK, KEV and Sigma records fit in one chunk at any of these sizes (5,718 docs → 5,803–7,293 chunks), so the window only changes the long ATT&CK pages. 400 words also gets close to bge-small's 512-token limit for text full of paths and ids. Keep 220.
+- **Embedding model (220 words), hybrid + fused rerank:**
+
+  | Model | Dim | Build (4 CPUs) | R@5 | MRR@10 | French R@5 |
+  |---|---|---|---|---|---|
+  | bge-small-en-v1.5 (default) | 384 | ~3 min | 0.910 | 0.741 | 0.0 |
+  | bge-base-en-v1.5 | 768 | 13 min | **0.925** | 0.758 | 0.4 |
+  | multilingual-e5-small | 384 | 5 min | 0.906 | **0.761** | 0.2 |
+
+- **Decision:** keep bge-small as the default. bge-base's gain (+0.015 R@5, ≈2 questions of 117) is within what one relabelled question moves, and it costs 4× build time, 2× vector size and slower CPU queries on the App Runner / Container Apps target. It stays one `EMBEDDING_MODEL=BAAI/bge-base-en-v1.5` away. Each model gets its own query/passage instruction prefix (`index.embedding_prefixes`); e5 without `query:`/`passage:` is a known recall loss.
+- **French is not solved by a multilingual encoder alone:** multilingual-e5-small reaches only 0.2 on the French paraphrases after fusion, and its dense English scores drop (R@5 0.822 vs 0.877). The hybrid also mixes in a BM25 list that has no French tokens to match. Next options: translate the query to English with the small LLM before retrieval, or bge-m3. Logged for after M4.
+- **Removed `ragas` from the `eval` extra:** its current release fails to import (`langchain_community` API change) and it pulls LangChain, which CLAUDE.md keeps out of the core. Faithfulness uses a 40-line LLM-as-judge instead (`eval/judge.py`).
+
+## 2026-11-04 — Answer eval: deterministic citation checks next to an LLM judge
+- **Decision:** `eval/run_answer_eval.py` runs each question through the real pipeline (only the router is bypassed) and scores the answer two ways:
+  - **LLM judge** (`eval/judge.py`, plain prompt + JSON): splits the answer into claims, marks each supported or not by the sources → *faithfulness*; plus a 1–5 *relevancy*.
+  - **Deterministic** (`eval/metrics.py`, unit-tested): *citation validity* (cited ids that were really provided), *gold cited* (cites a gold doc when one was retrieved), *statement coverage* (statements carrying a citation), *unsupported ids* (CVE / Txxxx / Mxxxx ids stated in prose that appear in no source). The citation parser is shared with the UI (`threatlens.citations`).
+- **Why both:** a judge model is cheap to run but lenient and biased; regex checks can't judge meaning but never drift. Where they disagree, the deterministic number wins the argument.
+- **Alternatives:** RAGAS (broken import, pulls LangChain); judge-only; human labels (best, kept for a small audit set later).
+- **First run — CPU sample only (10 questions, every 12th; generator llama3.2:3b, judge qwen2.5:7b, 4 CPUs, ~66 s per answer):**
+
+  | Faithfulness (judge) | Relevancy | Citation validity | Gold cited | Statement coverage | Unsupported ids / answer |
+  |---|---|---|---|---|---|
+  | 0.93 | 4.5 / 5 | 1.00 (2 answers cite) | 0.20 | 0.07 | 1.2 |
+
+  The judge says the answers are faithful; the citation checks say a 3B model mostly ignores the citation format (8 of 10 answers cite nothing) and lists ATT&CK ids from memory (q025 labels "T1059.001: Path Traversal"; the judge still gave it 1.0). **A 3B model is not good enough for ThreatLens, and a 7B judge is too lenient to be trusted alone.**
+- **Next:** run the full 117 questions with the production small model (`ollama/llama3.1:8b`, GPU) and a stronger judge (`JUDGE_MODEL`, defaults to `LARGE_MODEL`). Those per-question rows are also the training labels for the M3 router ("was the small model good enough?").
+
+## 2026-11-04 — Rebuild the vector store from an empty folder
+- **Finding:** on Windows, rebuilding the index after re-ingest left the Qdrant collection with 6,150 points while `chunks.jsonl` had 6,097, so dense search returned ids past the end of the chunk list and the answer eval crashed with an `IndexError`.
+- **Decision:** `index.build` deletes `data/index/<store>/` before writing vectors, and `dense_search` raises a clear "out of sync, run `make index`" error if the store ever returns an id beyond the chunk list.
+- **Why both:** the first removes the cause; the second turns any future mismatch (manual copy, partial build) into an actionable message instead of a crash deep in retrieval.
+
+## 2026-11-04 — Full answer eval: llama3.1:8b on 112 questions
+- **Setup:** generator `ollama/llama3.1:8b`, judge `ollama/qwen2.5:7b` (the largest judge that fits next to it on an 8 GB RTX 2070), cleaned corpus with 6,097 chunks, 7,029 s total (~41 s per answer at generation). It ran on 112 of 117 questions: that machine's CERT-FR feed had rolled past the 5 benchmark advisories, and the eval drops gold ids missing from the corpus by design.
+- **Result:**
+
+  | Scope | n | Faithfulness | Relevancy | Citation validity | Gold cited | Stmt coverage | Unsupported ids |
+  |---|---|---|---|---|---|---|---|
+  | all | 112 | 0.875 | 4.61 | 0.974 | 0.765 | 0.444 | 0.14 |
+  | technique | 50 | 0.950 | 4.94 | 1.000 | 0.938 | 0.621 | 0.00 |
+  | cve | 25 | 0.842 | 4.32 | 0.899 | 0.783 | 0.521 | 0.60 |
+  | detection | 20 | 0.837 | 4.58 | 1.000 | 0.400 | 0.130 | 0.00 |
+  | mitigation | 7 | 0.964 | 4.86 | 1.000 | 0.571 | 0.148 | 0.00 |
+  | alert | 5 | 0.739 | 4.40 | 1.000 | 0.750 | 0.258 | 0.20 |
+  | french | 5 | 0.467 | 2.80 | 1.000 | – | 0.140 | 0.00 |
+
+- **Takeaways:** (1) Compared with the 3B sample, the judge's faithfulness barely moves (0.93 → 0.88) while gold-cited goes 0.20 → 0.77 and unsupported ids 1.2 → 0.14: model choice shows up in the citation checks, not in the judge score. (2) Detection questions retrieve the right Sigma rule (R@5 1.0) but the answer cites it only 40% of the time; the prompt asks for "Sigma rules when available" and the model prefers the ATT&CK page. (3) Some answers name ids in prose ("source id: sigma:…") instead of brackets. The parser deliberately does not accept that, because the UI can't link it.
+- **Next:** stricter citation instructions plus one few-shot example in the system prompt (M4 prompt hardening), then re-measure; the per-question rows become router labels in M3.

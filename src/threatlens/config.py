@@ -11,10 +11,14 @@ class Settings(BaseSettings):
     # Models
     small_model: str = "ollama/llama3.1:8b"
     large_model: str = "anthropic/claude-sonnet-4-5"
+    judge_model: str = ""  # LLM-as-judge for the answer eval; empty = large_model
 
     # Retrieval
     vector_store: str = "qdrant"  # qdrant | chroma
     embedding_model: str = "BAAI/bge-small-en-v1.5"
+    # instruction prefixes for embedding queries/passages; "auto" picks them from the model name
+    query_prefix: str = "auto"
+    passage_prefix: str = "auto"
     reranker_model: str = "BAAI/bge-reranker-base"
     use_reranker: bool = True
     rerank_fusion: bool = True  # RRF(hybrid order, cross-encoder order)
@@ -25,6 +29,7 @@ class Settings(BaseSettings):
 
     # Data
     data_dir: Path = Path("data")
+    index_path: Path | None = None  # default data/index; the M2 ablations build one per config
     nvd_api_key: str = ""
 
     # Router
@@ -40,7 +45,7 @@ class Settings(BaseSettings):
 
     @property
     def index_dir(self) -> Path:
-        return self.data_dir / "index"
+        return self.index_path or self.data_dir / "index"
 
 
 settings = Settings()

@@ -115,3 +115,13 @@ def test_nvd_fetch_cve(monkeypatch):
 def test_nvd_unknown_cve(monkeypatch):
     monkeypatch.setattr(nvd.httpx, "get", lambda *a, **k: _Resp({"vulnerabilities": []}))
     assert nvd.fetch_cve("CVE-2099-0001") is None
+
+
+def test_clean_stix_text_drops_citations_and_links():
+    from threatlens.ingest import clean_stix_text
+
+    raw = (
+        "Adversaries may abuse [PowerShell](https://attack.mitre.org/techniques/T1059/001) "
+        "commands.(Citation: TechNet PowerShell) It is common. (Citation: A)(Citation: B)"
+    )
+    assert clean_stix_text(raw) == "Adversaries may abuse PowerShell commands. It is common."
