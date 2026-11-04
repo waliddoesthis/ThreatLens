@@ -56,7 +56,7 @@ def citation_metrics(
       (anything else is a hallucinated citation)
     - gold_cited: 1 if the answer cites a gold doc, None when no gold doc was retrieved
     - statement_coverage: share of statements carrying at least one citation
-    - invented_ids: CVE / technique / mitigation ids stated in the answer that appear in no
+    - unsupported_ids: CVE / technique / mitigation ids stated in the answer that appear in no
       provided source (rule 4 of the system prompt)
     """
     from threatlens.citations import extract_citations, mentioned_ids
@@ -73,5 +73,5 @@ def citation_metrics(
             sum(1 for s in sts if extract_citations(s)) / len(sts) if sts else None
         ),
         # ids stated in prose; a bad id inside a citation is already counted by citation_validity
-        "invented_ids": float(len(mentioned_ids(_BRACKETS.sub(" ", answer)) - known)),
+        "unsupported_ids": float(len(mentioned_ids(_BRACKETS.sub(" ", answer)) - known)),
     }

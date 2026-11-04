@@ -32,7 +32,7 @@ SUMMARY = [
     "citation_validity",
     "gold_cited",
     "statement_coverage",
-    "invented_ids",
+    "unsupported_ids",
     "latency_ms",
 ]
 

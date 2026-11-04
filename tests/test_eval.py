@@ -46,7 +46,7 @@ def test_citation_metrics():
     assert m["citation_validity"] == 2 / 3  # attack:T9999 was never provided
     assert m["gold_cited"] == 1.0
     assert m["statement_coverage"] == 2 / 3
-    assert m["invented_ids"] == 1.0  # T1059.009 is in no source
+    assert m["unsupported_ids"] == 1.0  # T1059.009 is in no source
     # gold not retrieved -> generation can't be blamed, so gold_cited is undefined
     assert citation_metrics(ans, provided, {"sigma:x"}, "")["gold_cited"] is None
     assert citation_metrics("No sources cover this.", [], set(), "")["citation_validity"] is None
