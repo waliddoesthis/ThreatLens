@@ -24,7 +24,7 @@ Tick boxes as you go. Each milestone ends with something measurable for the READ
 ## M2 — Evaluation (week 2)
 - [x] 100+ benchmark questions with gold ids (`eval/questions.jsonl`) — 117 q across 7 types (technique, mitigation, CVE, detection, alert, CERT-FR, French)
 - [x] Retrieval metrics script + ablation table (dense / BM25 / hybrid / +rerank) — fused rerank best: R@5 0.910, MRR 0.741; per-type breakdown
-- [x] Chunk-size and embedding-model ablations — chunk size ±0.01; bge-base +0.02 R@5 at 2.8× build time; French 0 → 0.4 with bigger/multilingual encoders
+- [x] Chunk-size and embedding-model ablations — chunk size ±0.014; bge-base +0.015 R@5 at 4× build time; French 0 → 0.2–0.4 with bigger/multilingual encoders
 - [ ] Answer faithfulness + citation accuracy — scripts done (LLM judge + deterministic citation checks); 10-q CPU sample with llama3.2:3b: faithfulness 0.93 but only 20% cite the gold doc. **Todo:** full 117-q run with llama3.1:8b on GPU
 **Deliverable:** results table + bar chart in README.
 

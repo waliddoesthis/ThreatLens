@@ -31,7 +31,7 @@ make ui                       # http://localhost:8501
 ```
 
 ## Results
-Retrieval on a **117-question benchmark** ([eval/questions.jsonl](eval/questions.jsonl)): ATT&CK technique paraphrases, mitigations, CVE nicknames, "which Sigma rule detects X", raw alerts / log lines, CERT-FR advisories and French questions. Corpus: 5,718 documents / 6,153 chunks from ATT&CK, CISA KEV, SigmaHQ and CERT-FR. Raw numbers in [eval/results/](eval/results/), reasoning in [docs/DECISIONS.md](docs/DECISIONS.md).
+Retrieval on a **117-question benchmark** ([eval/questions.jsonl](eval/questions.jsonl)): ATT&CK technique paraphrases, mitigations, CVE nicknames, "which Sigma rule detects X", raw alerts / log lines, CERT-FR advisories and French questions. Corpus: 5,718 documents / 6,100 chunks from ATT&CK, CISA KEV, SigmaHQ and CERT-FR. Raw numbers in [eval/results/](eval/results/), reasoning in [docs/DECISIONS.md](docs/DECISIONS.md).
 
 ![Retrieval ablation](docs/img/retrieval.png)
 
@@ -52,8 +52,8 @@ Takeaways:
 ### Chunk size and embedding model
 ![Ablation](docs/img/ablation.png)
 
-- **Chunk size (120 / 220 / 400 words) changes the scores by at most 0.012**, because most ATT&CK, KEV and Sigma records fit in one chunk at any of these sizes.
-- **bge-base-en-v1.5 gains +0.023 Recall@5** (0.916) for 2.8× the build time and twice the vector size. bge-small stays the default for CPU hosting. `multilingual-e5-small` lifts French from 0 to 0.4 but loses on English ([full table](eval/results/ablation.md)).
+- **Chunk size (120 / 220 / 400 words) changes the scores by at most 0.014**, because most ATT&CK, KEV and Sigma records fit in one chunk at any of these sizes.
+- **bge-base-en-v1.5 gains +0.015 Recall@5** (0.925) for 4× the build time and twice the vector size, so bge-small stays the default for CPU hosting. A bigger or multilingual encoder lifts French from 0 to only 0.2–0.4, so cross-lingual queries need query translation, not just a new model ([full table](eval/results/ablation.md)).
 
 ### Answer quality
 Every answer is scored by an LLM judge (faithfulness = supported claims / claims, relevancy 1–5) **and** by deterministic checks: does it cite only ids it was given, does it cite the gold document, how many statements carry a citation, and does it state CVE / ATT&CK ids that appear in no source ([eval/run_answer_eval.py](eval/run_answer_eval.py)).

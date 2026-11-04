@@ -94,18 +94,18 @@ One entry per non-trivial choice. These are your interview answers.
 - **Where it fails:** French questions score **0** in every mode. The corpus is English except CERT-FR, BM25 shares no tokens with "rançongiciel" or "hameçonnage", and bge-small-en is English-only. Raw alerts (R@5 0.70) are the next weakest: a command line like `rundll32 comsvcs.dll, MiniDump` is matched to Sigma rules but not to the ATT&CK technique. Both feed the embedding ablation below.
 
 ## 2026-11-04 — Chunk size and embedding model: keep 220 words and bge-small
-- **Setup:** `eval/run_ablation.py` builds one index per config under `data/index-ablation/` and scores dense, hybrid and hybrid + fused rerank on the 117 questions. Results: `eval/results/ablation.md`.
-- **Chunk size (bge-small, overlap ~18%), hybrid + fused rerank:** 120 words R@5 0.885 / MRR 0.771 (7,404 chunks); 220 words 0.893 / 0.759 (6,153); 400 words 0.893 / 0.756 (5,806). The spread is ≤0.012 on every metric. Most ATT&CK, KEV and Sigma records fit in one chunk at any of these sizes (5,718 docs → 5,806–7,404 chunks), so the window only changes the long ATT&CK pages. 400 words also gets close to bge-small's 512-token limit for text full of paths and ids. Keep 220.
+- **Setup:** `eval/run_ablation.py` builds one index per config under `data/index-ablation/` and scores dense, hybrid and hybrid + fused rerank on the 117 questions (cleaned corpus). Results: `eval/results/ablation.md`.
+- **Chunk size (bge-small, overlap ~18%), hybrid + fused rerank:** 120 words R@5 0.897 / MRR 0.760 (7,293 chunks); 220 words 0.910 / 0.741 (6,100); 400 words 0.910 / 0.755 (5,803). The spread is ≤0.014 on every metric, about 1–2 questions. Most ATT&CK, KEV and Sigma records fit in one chunk at any of these sizes (5,718 docs → 5,803–7,293 chunks), so the window only changes the long ATT&CK pages. 400 words also gets close to bge-small's 512-token limit for text full of paths and ids. Keep 220.
 - **Embedding model (220 words), hybrid + fused rerank:**
 
   | Model | Dim | Build (4 CPUs) | R@5 | MRR@10 | French R@5 |
   |---|---|---|---|---|---|
-  | bge-small-en-v1.5 (default) | 384 | ~3 min | 0.893 | 0.759 | 0.0 |
-  | bge-base-en-v1.5 | 768 | 13 min | **0.916** | **0.778** | 0.4 |
-  | multilingual-e5-small | 384 | 5 min | 0.880 | 0.759 | 0.4 |
+  | bge-small-en-v1.5 (default) | 384 | ~3 min | 0.910 | 0.741 | 0.0 |
+  | bge-base-en-v1.5 | 768 | 13 min | **0.925** | 0.758 | 0.4 |
+  | multilingual-e5-small | 384 | 5 min | 0.906 | **0.761** | 0.2 |
 
-- **Decision:** keep bge-small as the default. bge-base's gain (+0.023 R@5, ≈3 questions of 117) is within what one relabelled question moves, and it costs 2.8× build time, 2× vector size and slower CPU queries on the App Runner / Container Apps target. It stays one `EMBEDDING_MODEL=BAAI/bge-base-en-v1.5` away. Each model gets its own query/passage instruction prefix (`index.embedding_prefixes`); e5 without `query:`/`passage:` is a known recall loss.
-- **French is not solved by a multilingual encoder alone:** multilingual-e5-small only reaches 0.4 on the French paraphrases, and its English scores drop (dense R@5 0.805 vs 0.869). The hybrid also mixes in a BM25 list that has no French tokens to match. Next options: translate the query to English with the small LLM before retrieval, or bge-m3. Logged for after M4.
+- **Decision:** keep bge-small as the default. bge-base's gain (+0.015 R@5, ≈2 questions of 117) is within what one relabelled question moves, and it costs 4× build time, 2× vector size and slower CPU queries on the App Runner / Container Apps target. It stays one `EMBEDDING_MODEL=BAAI/bge-base-en-v1.5` away. Each model gets its own query/passage instruction prefix (`index.embedding_prefixes`); e5 without `query:`/`passage:` is a known recall loss.
+- **French is not solved by a multilingual encoder alone:** multilingual-e5-small reaches only 0.2 on the French paraphrases after fusion, and its dense English scores drop (R@5 0.822 vs 0.877). The hybrid also mixes in a BM25 list that has no French tokens to match. Next options: translate the query to English with the small LLM before retrieval, or bge-m3. Logged for after M4.
 - **Removed `ragas` from the `eval` extra:** its current release fails to import (`langchain_community` API change) and it pulls LangChain, which CLAUDE.md keeps out of the core. Faithfulness uses a 40-line LLM-as-judge instead (`eval/judge.py`).
 
 ## 2026-11-04 — Answer eval: deterministic citation checks next to an LLM judge
