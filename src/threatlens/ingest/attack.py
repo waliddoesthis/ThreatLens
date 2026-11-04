@@ -3,7 +3,7 @@
 import json
 
 from threatlens.config import settings
-from threatlens.ingest import download, processed_path
+from threatlens.ingest import clean_stix_text, download, processed_path
 from threatlens.schema import Document, write_jsonl
 
 URL = "https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json"
@@ -28,11 +28,11 @@ def parse(bundle: dict) -> list[Document]:
         if not ext_id:
             continue
         name = obj.get("name", "")
-        desc = obj.get("description", "")
+        desc = clean_stix_text(obj.get("description", ""))
         if typ == "attack-pattern":
             tactics = [p["phase_name"] for p in obj.get("kill_chain_phases", [])]
             platforms = obj.get("x_mitre_platforms", [])
-            detection = obj.get("x_mitre_detection", "")
+            detection = clean_stix_text(obj.get("x_mitre_detection", ""))
             text = (
                 f"ATT&CK technique {ext_id}: {name}\n"
                 f"Tactics: {', '.join(tactics)}\nPlatforms: {', '.join(platforms)}\n\n{desc}"

@@ -14,7 +14,7 @@ import httpx
 import yaml
 
 from threatlens.config import settings
-from threatlens.ingest import download, processed_path
+from threatlens.ingest import clean_stix_text, download, processed_path
 from threatlens.schema import Document, write_jsonl
 
 URL = "https://github.com/SigmaHQ/sigma/archive/refs/heads/master.zip"
@@ -34,7 +34,7 @@ def rule_to_doc(rule: dict, path: str) -> Document | None:
         f"Sigma rule: {rule['title']}\nLevel: {rule.get('level', '')}  "
         f"Status: {rule.get('status', '')}\n"
         f"Log source: {', '.join(f'{k}={v}' for k, v in logsource.items())}\n"
-        f"ATT&CK: {', '.join(techniques)}\n\n{rule.get('description', '')}\n\n"
+        f"ATT&CK: {', '.join(techniques)}\n\n{clean_stix_text(rule.get('description', ''))}\n\n"
         f"Detection logic:\n{detection}"
     )
     return Document(

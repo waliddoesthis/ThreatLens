@@ -37,14 +37,14 @@ Retrieval on a **117-question benchmark** ([eval/questions.jsonl](eval/questions
 
 | Retrieval | Recall@5 | Recall@10 | MRR@10 | nDCG@10 |
 |---|---|---|---|---|
-| BM25 | 0.754 | 0.843 | 0.598 | 0.652 |
-| Dense (bge-small-en-v1.5) | 0.869 | 0.912 | 0.742 | 0.779 |
-| Hybrid (RRF) | 0.868 | **0.936** | 0.740 | 0.785 |
-| Hybrid + cross-encoder rerank | 0.842 | 0.902 | 0.700 | 0.746 |
-| Hybrid + rerank, RRF-fused (default) | **0.893** | 0.927 | **0.759** | **0.799** |
+| BM25 | 0.742 | 0.843 | 0.615 | 0.665 |
+| Dense (bge-small-en-v1.5) | 0.877 | 0.903 | 0.738 | 0.773 |
+| Hybrid (RRF) | 0.893 | **0.936** | 0.738 | 0.783 |
+| Hybrid + cross-encoder rerank | 0.850 | 0.919 | 0.711 | 0.758 |
+| Hybrid + rerank, RRF-fused (default) | **0.910** | **0.936** | **0.741** | **0.787** |
 
 Takeaways:
-- **Hybrid beats either retriever alone**, and fusing the cross-encoder with the hybrid order (instead of replacing it) gives the best top 5. The choice was made on 35 questions in M1 and **held on 82 new ones**.
+- **Hybrid beats either retriever alone**, and fusing the cross-encoder with the hybrid order (instead of replacing it) gives the best top 5 (by a small margin, ≈2 questions). The choice was made on 35 questions in M1 and **held on 82 new ones**.
 - **A reranker is not a free win.** On its own the cross-encoder ranks narrow Sigma rules above the ATT&CK technique a question is about, and scores below no reranker at all.
 - **Per-type scores show what an average hides:** detection questions reach R@5 1.00 and CVE nicknames 0.92, but raw alerts sit at 0.70 and **French questions score 0** with an English embedding model ([by type](eval/results/retrieval.md)).
 - **Qdrant or Chroma** gave the same scores in M1 (35 questions): set `VECTOR_STORE=chroma` and rebuild ([results](eval/results/retrieval-chroma.md)).
@@ -56,7 +56,15 @@ Takeaways:
 - **bge-base-en-v1.5 gains +0.023 Recall@5** (0.916) for 2.8× the build time and twice the vector size. bge-small stays the default for CPU hosting. `multilingual-e5-small` lifts French from 0 to 0.4 but loses on English ([full table](eval/results/ablation.md)).
 
 ### Answer quality
-ANSWER_SECTION
+Every answer is scored by an LLM judge (faithfulness = supported claims / claims, relevancy 1–5) **and** by deterministic checks: does it cite only ids it was given, does it cite the gold document, how many statements carry a citation, and does it state CVE / ATT&CK ids that appear in no source ([eval/run_answer_eval.py](eval/run_answer_eval.py)).
+
+First run, a 10-question CPU sample with `llama3.2:3b` as generator and `qwen2.5:7b` as judge ([results](eval/results/answers-llama3.2-3b.md)):
+
+| Faithfulness (judge) | Relevancy | Gold doc cited | Statements with a citation | Unsupported ids / answer |
+|---|---|---|---|---|
+| 0.93 | 4.5 / 5 | 0.20 | 0.07 | 1.2 |
+
+The judge rates the answers faithful, but the citation checks show a 3B model mostly ignores the `[source:id]` format and names ATT&CK ids from memory. **That gap is why the deterministic checks exist:** an LLM judge alone would have passed this model. The full 117-question run uses the production small model (`llama3.1:8b`) and a stronger judge.
 
 ## Data
 Public sources only — see [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md). ATT&CK® is a registered trademark of The MITRE Corporation.

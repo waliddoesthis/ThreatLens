@@ -74,18 +74,23 @@ One entry per non-trivial choice. These are your interview answers.
 - **Why these types:** CLAUDE.md promises "a question, an alert, a log line or a CVE id"; alerts and French queries were not measured at all before. `run_retrieval_eval.py` now reports metrics per type, because an average over 117 questions hides a type that fails completely.
 - **Stale labels:** CERT-FR's feed keeps only ~40 recent advisories and ATT&CK renumbers techniques, so the eval drops gold ids that are no longer in the corpus (with a warning) instead of counting them as misses. The CERT-FR questions are tied to the 2026-11-03 snapshot.
 
+## 2026-11-04 — Strip ATT&CK "(Citation: …)" markers at ingest
+- **Finding:** the first answer-eval run showed llama3.2:3b citing `([Citation: TechNet PowerShell])` instead of `[attack:T1059.001]`. ATT&CK descriptions carry STIX citation markers (679 of 750 docs) and markdown links, and a small model copies the format it sees in its sources over the one in the system prompt.
+- **Decision:** `ingest.clean_stix_text()` removes `(Citation: X)` and unwraps `[text](url)` in ATT&CK descriptions/detections and Sigma descriptions.
+- **Side effect on retrieval (117 q, hybrid + fused rerank):** R@5 0.893 → 0.910, MRR@10 0.759 → 0.741. The markers were noise for BM25 and the embeddings; the MRR drop is a few gold docs moving from rank 1 to 2. All numbers below are on the cleaned corpus.
+
 ## 2026-11-04 — Fused reranking confirmed on the 117-question set
-- **Finding (117 q, 5,718 docs, 6,153 chunks):**
+- **Finding (117 q, 5,718 docs, cleaned corpus):**
 
   | Mode | Recall@5 | Recall@10 | MRR@10 | nDCG@10 |
   |---|---|---|---|---|
-  | bm25 | 0.754 | 0.843 | 0.598 | 0.652 |
-  | dense | 0.869 | 0.912 | 0.742 | 0.779 |
-  | hybrid (RRF) | 0.868 | 0.936 | 0.740 | 0.785 |
-  | hybrid + rerank | 0.842 | 0.902 | 0.700 | 0.746 |
-  | hybrid + rerank, RRF-fused | **0.893** | 0.927 | **0.759** | **0.799** |
+  | bm25 | 0.742 | 0.843 | 0.615 | 0.665 |
+  | dense | 0.877 | 0.903 | 0.738 | 0.773 |
+  | hybrid (RRF) | 0.893 | 0.936 | 0.738 | 0.783 |
+  | hybrid + rerank | 0.850 | 0.919 | 0.711 | 0.758 |
+  | hybrid + rerank, RRF-fused | **0.910** | **0.936** | **0.741** | **0.787** |
 
-- The October choice (made on 35 questions) holds on 82 unseen ones: the fused reranker is the best mode on Recall@5, MRR and nDCG, and the pure cross-encoder is still worse than no reranker. Hybrid keeps the best Recall@10 (0.936), so the reranker trades a little depth for a better top 5, which is what the LLM sees (top 6 chunks).
+- The October choice (made on 35 questions) holds on 82 unseen ones: the fused reranker is the best or tied-best mode on every metric, and the pure cross-encoder is still worse than no reranker. The margin over plain hybrid is small (+0.017 R@5, ≈2 questions), so the reranker earns its latency mostly on the top 5 the LLM sees.
 - **Where it fails:** French questions score **0** in every mode. The corpus is English except CERT-FR, BM25 shares no tokens with "rançongiciel" or "hameçonnage", and bge-small-en is English-only. Raw alerts (R@5 0.70) are the next weakest: a command line like `rundll32 comsvcs.dll, MiniDump` is matched to Sigma rules but not to the ATT&CK technique. Both feed the embedding ablation below.
 
 ## 2026-11-04 — Chunk size and embedding model: keep 220 words and bge-small
@@ -102,3 +107,18 @@ One entry per non-trivial choice. These are your interview answers.
 - **Decision:** keep bge-small as the default. bge-base's gain (+0.023 R@5, ≈3 questions of 117) is within what one relabelled question moves, and it costs 2.8× build time, 2× vector size and slower CPU queries on the App Runner / Container Apps target. It stays one `EMBEDDING_MODEL=BAAI/bge-base-en-v1.5` away. Each model gets its own query/passage instruction prefix (`index.embedding_prefixes`); e5 without `query:`/`passage:` is a known recall loss.
 - **French is not solved by a multilingual encoder alone:** multilingual-e5-small only reaches 0.4 on the French paraphrases, and its English scores drop (dense R@5 0.805 vs 0.869). The hybrid also mixes in a BM25 list that has no French tokens to match. Next options: translate the query to English with the small LLM before retrieval, or bge-m3. Logged for after M4.
 - **Removed `ragas` from the `eval` extra:** its current release fails to import (`langchain_community` API change) and it pulls LangChain, which CLAUDE.md keeps out of the core. Faithfulness uses a 40-line LLM-as-judge instead (`eval/judge.py`).
+
+## 2026-11-04 — Answer eval: deterministic citation checks next to an LLM judge
+- **Decision:** `eval/run_answer_eval.py` runs each question through the real pipeline (only the router is bypassed) and scores the answer two ways:
+  - **LLM judge** (`eval/judge.py`, plain prompt + JSON): splits the answer into claims, marks each supported or not by the sources → *faithfulness*; plus a 1–5 *relevancy*.
+  - **Deterministic** (`eval/metrics.py`, unit-tested): *citation validity* (cited ids that were really provided), *gold cited* (cites a gold doc when one was retrieved), *statement coverage* (statements carrying a citation), *unsupported ids* (CVE / Txxxx / Mxxxx ids stated in prose that appear in no source). The citation parser is shared with the UI (`threatlens.citations`).
+- **Why both:** a judge model is cheap to run but lenient and biased; regex checks can't judge meaning but never drift. Where they disagree, the deterministic number wins the argument.
+- **Alternatives:** RAGAS (broken import, pulls LangChain); judge-only; human labels (best, kept for a small audit set later).
+- **First run — CPU sample only (10 questions, every 12th; generator llama3.2:3b, judge qwen2.5:7b, 4 CPUs, ~66 s per answer):**
+
+  | Faithfulness (judge) | Relevancy | Citation validity | Gold cited | Statement coverage | Unsupported ids / answer |
+  |---|---|---|---|---|---|
+  | 0.93 | 4.5 / 5 | 1.00 (2 answers cite) | 0.20 | 0.07 | 1.2 |
+
+  The judge says the answers are faithful; the citation checks say a 3B model mostly ignores the citation format (8 of 10 answers cite nothing) and lists ATT&CK ids from memory (q025 labels "T1059.001: Path Traversal"; the judge still gave it 1.0). **A 3B model is not good enough for ThreatLens, and a 7B judge is too lenient to be trusted alone.**
+- **Next:** run the full 117 questions with the production small model (`ollama/llama3.1:8b`, GPU) and a stronger judge (`JUDGE_MODEL`, defaults to `LARGE_MODEL`). Those per-question rows are also the training labels for the M3 router ("was the small model good enough?").

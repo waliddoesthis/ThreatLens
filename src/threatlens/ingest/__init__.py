@@ -1,5 +1,6 @@
 """Source-specific ingesters. Each exposes `ingest() -> int` writing data/processed/<source>.jsonl."""
 
+import re
 from pathlib import Path
 
 import httpx
@@ -26,3 +27,16 @@ def download(url: str, dest: Path, *, force: bool = False) -> Path:
 
 def processed_path(source: str) -> Path:
     return settings.processed_dir / f"{source}.jsonl"
+
+
+_STIX_CITATION = re.compile(r"\s*\(Citation: [^)]*\)")
+_MD_LINK = re.compile(r"\[([^\]]+)\]\((?:https?://)[^)]*\)")
+
+
+def clean_stix_text(text: str) -> str:
+    """Drop ATT&CK's "(Citation: Source)" markers and unwrap markdown links.
+
+    Left in, small models copy "(Citation: TechNet PowerShell)" instead of citing [attack:T…],
+    and "[PowerShell](https://…)" brackets look like citations to the parser.
+    """
+    return _MD_LINK.sub(r"\1", _STIX_CITATION.sub("", text))
