@@ -40,6 +40,9 @@ make index        # build dense + BM25 indexes
 make api          # uvicorn on :8000
 make ui           # streamlit on :8501
 make eval         # retrieval benchmark -> eval/results/
+make eval-ablation  # chunk-size + embedding-model ablations
+make eval-answers   # faithfulness + citation accuracy (needs an LLM)
+make plots        # README charts -> docs/img/
 make test         # pytest
 ```
 

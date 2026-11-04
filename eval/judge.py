@@ -53,5 +53,10 @@ def parse_verdict(text: str) -> dict | None:
 
 def judge(model: str, question: str, answer: str, chunks: list[RetrievedChunk]) -> dict:
     kwargs = {"response_format": {"type": "json_object"}} if model.startswith("ollama") else {}
-    res = complete(model, judge_messages(question, answer, chunks), 0.0, 1500, **kwargs)
-    return parse_verdict(res.text) or {"claims": [], "faithfulness": None, "relevancy": None}
+    failed = {"claims": [], "faithfulness": None, "relevancy": None}
+    try:
+        res = complete(model, judge_messages(question, answer, chunks), 0.0, 1500, **kwargs)
+    except Exception as e:  # a judge outage is counted in judge_failures, not a crash
+        print(f"[judge error] {type(e).__name__}: {str(e)[:120]}")
+        return failed
+    return parse_verdict(res.text) or failed

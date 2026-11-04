@@ -7,6 +7,7 @@ __pycache__/
 data/raw/*
 data/processed/*
 data/index/*
+data/index-ablation/
 !data/**/.gitkeep
 *.egg-info/
 .DS_Store

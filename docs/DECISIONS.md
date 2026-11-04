@@ -68,3 +68,37 @@ One entry per non-trivial choice. These are your interview answers.
 - **Why both:** Walid wants the project to run on Chroma too. Qdrant stays the default (same client for embedded and server mode, payload filters, sparse vectors for later).
 - **Finding:** Chroma's HNSW is approximate while Qdrant's local mode searches exactly. With Chroma's defaults (ef_search 100) dense Recall@5 was 0.886 vs 0.914, because neighbours were missed (e.g. only 13 of the top 30 shared for "ProxyLogon…"). `ef_search=200` closes the gap.
 - **Result (35 q):** dense and hybrid identical on both stores (R@5 0.914 / 0.943). Rerank modes differ by ≤0.014 MRR from tiny ordering differences deep in the 30 candidates. Files: `eval/results/retrieval.md` (Qdrant), `eval/results/retrieval-chroma.md`.
+
+## 2026-11-04 — Benchmark grows to 117 questions, scored per question type
+- **Decision:** add 82 questions (q036–q117): 35 ATT&CK paraphrases, 6 mitigations, 16 CVE nicknames (Spring4Shell, Follina, ProxyNotShell, noPac…), 10 detection questions, 5 raw alerts / log lines, 5 CERT-FR questions and 5 French paraphrases of English ATT&CK questions. Four questions have 2–3 gold docs (ProxyNotShell, the Ivanti chain, noPac, DCSync rules). Every gold id was checked against the corpus before committing.
+- **Why these types:** CLAUDE.md promises "a question, an alert, a log line or a CVE id"; alerts and French queries were not measured at all before. `run_retrieval_eval.py` now reports metrics per type, because an average over 117 questions hides a type that fails completely.
+- **Stale labels:** CERT-FR's feed keeps only ~40 recent advisories and ATT&CK renumbers techniques, so the eval drops gold ids that are no longer in the corpus (with a warning) instead of counting them as misses. The CERT-FR questions are tied to the 2026-11-03 snapshot.
+
+## 2026-11-04 — Fused reranking confirmed on the 117-question set
+- **Finding (117 q, 5,718 docs, 6,153 chunks):**
+
+  | Mode | Recall@5 | Recall@10 | MRR@10 | nDCG@10 |
+  |---|---|---|---|---|
+  | bm25 | 0.754 | 0.843 | 0.598 | 0.652 |
+  | dense | 0.869 | 0.912 | 0.742 | 0.779 |
+  | hybrid (RRF) | 0.868 | 0.936 | 0.740 | 0.785 |
+  | hybrid + rerank | 0.842 | 0.902 | 0.700 | 0.746 |
+  | hybrid + rerank, RRF-fused | **0.893** | 0.927 | **0.759** | **0.799** |
+
+- The October choice (made on 35 questions) holds on 82 unseen ones: the fused reranker is the best mode on Recall@5, MRR and nDCG, and the pure cross-encoder is still worse than no reranker. Hybrid keeps the best Recall@10 (0.936), so the reranker trades a little depth for a better top 5, which is what the LLM sees (top 6 chunks).
+- **Where it fails:** French questions score **0** in every mode. The corpus is English except CERT-FR, BM25 shares no tokens with "rançongiciel" or "hameçonnage", and bge-small-en is English-only. Raw alerts (R@5 0.70) are the next weakest: a command line like `rundll32 comsvcs.dll, MiniDump` is matched to Sigma rules but not to the ATT&CK technique. Both feed the embedding ablation below.
+
+## 2026-11-04 — Chunk size and embedding model: keep 220 words and bge-small
+- **Setup:** `eval/run_ablation.py` builds one index per config under `data/index-ablation/` and scores dense, hybrid and hybrid + fused rerank on the 117 questions. Results: `eval/results/ablation.md`.
+- **Chunk size (bge-small, overlap ~18%), hybrid + fused rerank:** 120 words R@5 0.885 / MRR 0.771 (7,404 chunks); 220 words 0.893 / 0.759 (6,153); 400 words 0.893 / 0.756 (5,806). The spread is ≤0.012 on every metric. Most ATT&CK, KEV and Sigma records fit in one chunk at any of these sizes (5,718 docs → 5,806–7,404 chunks), so the window only changes the long ATT&CK pages. 400 words also gets close to bge-small's 512-token limit for text full of paths and ids. Keep 220.
+- **Embedding model (220 words), hybrid + fused rerank:**
+
+  | Model | Dim | Build (4 CPUs) | R@5 | MRR@10 | French R@5 |
+  |---|---|---|---|---|---|
+  | bge-small-en-v1.5 (default) | 384 | ~3 min | 0.893 | 0.759 | 0.0 |
+  | bge-base-en-v1.5 | 768 | 13 min | **0.916** | **0.778** | 0.4 |
+  | multilingual-e5-small | 384 | 5 min | 0.880 | 0.759 | 0.4 |
+
+- **Decision:** keep bge-small as the default. bge-base's gain (+0.023 R@5, ≈3 questions of 117) is within what one relabelled question moves, and it costs 2.8× build time, 2× vector size and slower CPU queries on the App Runner / Container Apps target. It stays one `EMBEDDING_MODEL=BAAI/bge-base-en-v1.5` away. Each model gets its own query/passage instruction prefix (`index.embedding_prefixes`); e5 without `query:`/`passage:` is a known recall loss.
+- **French is not solved by a multilingual encoder alone:** multilingual-e5-small only reaches 0.4 on the French paraphrases, and its English scores drop (dense R@5 0.805 vs 0.869). The hybrid also mixes in a BM25 list that has no French tokens to match. Next options: translate the query to English with the small LLM before retrieval, or bge-m3. Logged for after M4.
+- **Removed `ragas` from the `eval` extra:** its current release fails to import (`langchain_community` API change) and it pulls LangChain, which CLAUDE.md keeps out of the core. Faithfulness uses a 40-line LLM-as-judge instead (`eval/judge.py`).
