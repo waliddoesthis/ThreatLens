@@ -22,10 +22,10 @@ Tick boxes as you go. Each milestone ends with something measurable for the READ
 **Deliverable:** demo GIF of 3 queries answered with sources.
 
 ## M2 — Evaluation (week 2)
-- [ ] 100+ benchmark questions with gold ids (`eval/questions.jsonl`)
-- [ ] Retrieval metrics script + ablation table (dense / BM25 / hybrid / +rerank)
-- [ ] Chunk-size and embedding-model ablations
-- [ ] Answer faithfulness + citation accuracy
+- [x] 100+ benchmark questions with gold ids (`eval/questions.jsonl`) — 117 q across 7 types (technique, mitigation, CVE, detection, alert, CERT-FR, French)
+- [x] Retrieval metrics script + ablation table (dense / BM25 / hybrid / +rerank) — fused rerank best: R@5 0.910, MRR 0.741; per-type breakdown
+- [x] Chunk-size and embedding-model ablations — chunk size ±0.014; bge-base +0.015 R@5 at 4× build time; French 0 → 0.2–0.4 with bigger/multilingual encoders
+- [x] Answer faithfulness + citation accuracy — llama3.1:8b on 112 q: faithfulness 0.875, citation validity 0.974, gold doc cited 0.765 (detections only 0.40); LLM judge alone ranked a 3B model higher
 **Deliverable:** results table + bar chart in README.
 
 ## M3 — Cost-aware router (week 2)

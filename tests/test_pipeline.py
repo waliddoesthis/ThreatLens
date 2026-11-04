@@ -107,3 +107,34 @@ def test_vector_stores_agree(tmp_path):
     assert all(r[0] == 7 for r in results.values())
     if len(results) == 2:
         assert results["qdrant"] == results["chroma"]
+
+
+def test_dense_search_refuses_stale_index(tmp_path, monkeypatch):
+    """A vector store with more points than chunks.jsonl must fail loudly, not IndexError later."""
+    import pickle
+
+    import numpy as np
+    import pytest
+    from rank_bm25 import BM25Okapi
+
+    from threatlens.config import settings
+    from threatlens.retrieval.hybrid import HybridRetriever
+
+    (tmp_path / "chunks.jsonl").write_text(
+        '{"chunk_id": "a#0", "doc_id": "a", "source": "attack", "title": "t", "text": "x"}\n'
+    )
+    (tmp_path / "bm25.pkl").write_bytes(pickle.dumps(BM25Okapi([["x"]])))
+    monkeypatch.setattr(settings, "index_path", tmp_path)
+
+    class Enc:
+        def encode(self, *a, **k):
+            return np.zeros(3)
+
+    class StaleStore:
+        def search(self, v, k):
+            return [0, 5]  # id 5 points past the single chunk
+
+    r = HybridRetriever()
+    r._encoder, r._store = Enc(), StaleStore()
+    with pytest.raises(RuntimeError, match="out of sync"):
+        r.dense_search("q", 2)

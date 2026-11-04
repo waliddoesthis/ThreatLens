@@ -7,6 +7,7 @@ Outputs in data/index/: chunks.jsonl, bm25.pkl, and qdrant/ or chroma/ (VECTOR_S
 import argparse
 import json
 import pickle
+import shutil
 from dataclasses import asdict
 
 from rank_bm25 import BM25Okapi
@@ -14,7 +15,7 @@ from tqdm import tqdm
 
 from threatlens.chunking import chunk_document
 from threatlens.config import settings
-from threatlens.index import tokenize
+from threatlens.index import embedding_prefixes, tokenize
 from threatlens.schema import Chunk, read_jsonl
 
 
@@ -53,14 +54,26 @@ def build(sparse_only: bool = False) -> None:
 
     # Dense
     model = SentenceTransformer(settings.embedding_model)
+    # start from an empty folder: a collection reset alone left stale points behind on Windows,
+    # so the store held more vectors than chunks.jsonl and dense search returned dead ids
+    shutil.rmtree(out / settings.vector_store, ignore_errors=True)
     store = get_store()
     store.reset(model.get_sentence_embedding_dimension())
     batch = 256
+    passage_prefix = embedding_prefixes(settings.embedding_model)[1]
     for i in tqdm(range(0, len(chunks), batch), desc=f"embedding -> {settings.vector_store}"):
         part = chunks[i : i + batch]
-        vecs = model.encode([c.text for c in part], normalize_embeddings=True)
+        vecs = model.encode([passage_prefix + c.text for c in part], normalize_embeddings=True)
         store.add(list(range(i, i + len(part))), vecs)
     store.close()
+    meta = {
+        "embedding_model": settings.embedding_model,
+        "chunk_size_words": settings.chunk_size_words,
+        "chunk_overlap_words": settings.chunk_overlap_words,
+        "vector_store": settings.vector_store,
+        "n_chunks": len(chunks),
+    }
+    (out / "meta.json").write_text(json.dumps(meta, indent=2))
     print("Dense index done")
 
 

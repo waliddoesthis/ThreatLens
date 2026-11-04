@@ -29,7 +29,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "ruff>=0.4"]
-eval = ["ragas>=0.1", "pandas>=2.2", "matplotlib>=3.8"]
+eval = ["matplotlib>=3.8"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

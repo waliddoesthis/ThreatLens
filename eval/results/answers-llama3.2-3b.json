@@ -1,0 +1,90 @@
+{
+  "model": "ollama/llama3.2:3b",
+  "judge": "ollama/qwen2.5:7b",
+  "overall": {
+    "n": 10,
+    "faithfulness": 0.9291666666666667,
+    "faithfulness_n": 10,
+    "relevancy": 4.5,
+    "citation_validity": 1.0,
+    "citation_validity_n": 2,
+    "gold_cited": 0.2,
+    "gold_cited_n": 10,
+    "statement_coverage": 0.06785714285714285,
+    "unsupported_ids": 1.2,
+    "latency_ms": 66395.6,
+    "judge_failures": 0
+  },
+  "by_type": {
+    "certfr": {
+      "n": 1,
+      "faithfulness": 1.0,
+      "faithfulness_n": 1,
+      "relevancy": 5.0,
+      "citation_validity": 1.0,
+      "citation_validity_n": 1,
+      "gold_cited": 1.0,
+      "gold_cited_n": 1,
+      "statement_coverage": 0.42857142857142855,
+      "unsupported_ids": 6.0,
+      "latency_ms": 89182.0,
+      "judge_failures": 0
+    },
+    "cve": {
+      "n": 3,
+      "faithfulness": 0.7638888888888888,
+      "faithfulness_n": 3,
+      "relevancy": 3.6666666666666665,
+      "citation_validity": null,
+      "citation_validity_n": 0,
+      "gold_cited": 0.0,
+      "gold_cited_n": 3,
+      "statement_coverage": 0.0,
+      "unsupported_ids": 2.0,
+      "latency_ms": 51627.666666666664,
+      "judge_failures": 0
+    },
+    "detection": {
+      "n": 1,
+      "faithfulness": 1.0,
+      "faithfulness_n": 1,
+      "relevancy": 5.0,
+      "citation_validity": null,
+      "citation_validity_n": 0,
+      "gold_cited": 0.0,
+      "gold_cited_n": 1,
+      "statement_coverage": 0.0,
+      "unsupported_ids": 0.0,
+      "latency_ms": 70211.0,
+      "judge_failures": 0
+    },
+    "mitigation": {
+      "n": 1,
+      "faithfulness": 1.0,
+      "faithfulness_n": 1,
+      "relevancy": 5.0,
+      "citation_validity": 1.0,
+      "citation_validity_n": 1,
+      "gold_cited": 1.0,
+      "gold_cited_n": 1,
+      "statement_coverage": 0.25,
+      "unsupported_ids": 0.0,
+      "latency_ms": 76361.0,
+      "judge_failures": 0
+    },
+    "technique": {
+      "n": 4,
+      "faithfulness": 1.0,
+      "faithfulness_n": 4,
+      "relevancy": 4.75,
+      "citation_validity": null,
+      "citation_validity_n": 0,
+      "gold_cited": 0.0,
+      "gold_cited_n": 4,
+      "statement_coverage": 0.0,
+      "unsupported_ids": 0.0,
+      "latency_ms": 68329.75,
+      "judge_failures": 0
+    }
+  }
+}
