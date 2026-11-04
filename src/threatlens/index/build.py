@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 from threatlens.chunking import chunk_document
 from threatlens.config import settings
-from threatlens.index import tokenize
+from threatlens.index import embedding_prefixes, tokenize
 from threatlens.schema import Chunk, read_jsonl
 
 
@@ -56,11 +56,20 @@ def build(sparse_only: bool = False) -> None:
     store = get_store()
     store.reset(model.get_sentence_embedding_dimension())
     batch = 256
+    passage_prefix = embedding_prefixes(settings.embedding_model)[1]
     for i in tqdm(range(0, len(chunks), batch), desc=f"embedding -> {settings.vector_store}"):
         part = chunks[i : i + batch]
-        vecs = model.encode([c.text for c in part], normalize_embeddings=True)
+        vecs = model.encode([passage_prefix + c.text for c in part], normalize_embeddings=True)
         store.add(list(range(i, i + len(part))), vecs)
     store.close()
+    meta = {
+        "embedding_model": settings.embedding_model,
+        "chunk_size_words": settings.chunk_size_words,
+        "chunk_overlap_words": settings.chunk_overlap_words,
+        "vector_store": settings.vector_store,
+        "n_chunks": len(chunks),
+    }
+    (out / "meta.json").write_text(json.dumps(meta, indent=2))
     print("Dense index done")
 
 

@@ -6,6 +6,8 @@ import re
 import httpx
 import streamlit as st
 
+from threatlens.citations import extract_citations
+
 API_URL = os.getenv("THREATLENS_API_URL", "")
 
 st.set_page_config(page_title="ThreatLens", page_icon="🔎", layout="wide")
@@ -49,11 +51,14 @@ if st.button("Ask", type="primary") and question.strip():
     urls = {c["chunk"]["doc_id"]: c["chunk"]["url"] for c in res["citations"]}
 
     def linkify(text: str) -> str:
-        return re.sub(
-            r"\[([a-z]+:[^\]\s]+)\]",
-            lambda m: f"[[{m.group(1)}]]({urls[m.group(1)]})" if m.group(1) in urls else m.group(0),
-            text,
-        )
+        # same parser as the answer eval, so grouped citations "[a:1, b:2]" get linked too
+        def link(m: re.Match) -> str:
+            ids = extract_citations(m.group(0))
+            if not ids:
+                return m.group(0)
+            return ", ".join(f"[[{i}]]({urls[i]})" if i in urls else f"[{i}]" for i in ids)
+
+        return re.sub(r"\[[^\[\]]+\]", link, text)
 
     col1, col2 = st.columns([2, 1])
     with col1:
