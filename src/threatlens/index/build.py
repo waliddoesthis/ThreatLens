@@ -7,6 +7,7 @@ Outputs in data/index/: chunks.jsonl, bm25.pkl, and qdrant/ or chroma/ (VECTOR_S
 import argparse
 import json
 import pickle
+import shutil
 from dataclasses import asdict
 
 from rank_bm25 import BM25Okapi
@@ -53,6 +54,9 @@ def build(sparse_only: bool = False) -> None:
 
     # Dense
     model = SentenceTransformer(settings.embedding_model)
+    # start from an empty folder: a collection reset alone left stale points behind on Windows,
+    # so the store held more vectors than chunks.jsonl and dense search returned dead ids
+    shutil.rmtree(out / settings.vector_store, ignore_errors=True)
     store = get_store()
     store.reset(model.get_sentence_embedding_dimension())
     batch = 256
