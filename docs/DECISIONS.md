@@ -127,3 +127,20 @@ One entry per non-trivial choice. These are your interview answers.
 - **Finding:** on Windows, rebuilding the index after re-ingest left the Qdrant collection with 6,150 points while `chunks.jsonl` had 6,097, so dense search returned ids past the end of the chunk list and the answer eval crashed with an `IndexError`.
 - **Decision:** `index.build` deletes `data/index/<store>/` before writing vectors, and `dense_search` raises a clear "out of sync, run `make index`" error if the store ever returns an id beyond the chunk list.
 - **Why both:** the first removes the cause; the second turns any future mismatch (manual copy, partial build) into an actionable message instead of a crash deep in retrieval.
+
+## 2026-11-04 — Full answer eval: llama3.1:8b on 112 questions
+- **Setup:** generator `ollama/llama3.1:8b`, judge `ollama/qwen2.5:7b` (the largest judge that fits next to it on an 8 GB RTX 2070), cleaned corpus with 6,097 chunks, 7,029 s total (~41 s per answer at generation). It ran on 112 of 117 questions: that machine's CERT-FR feed had rolled past the 5 benchmark advisories, and the eval drops gold ids missing from the corpus by design.
+- **Result:**
+
+  | Scope | n | Faithfulness | Relevancy | Citation validity | Gold cited | Stmt coverage | Unsupported ids |
+  |---|---|---|---|---|---|---|---|
+  | all | 112 | 0.875 | 4.61 | 0.974 | 0.765 | 0.444 | 0.14 |
+  | technique | 50 | 0.950 | 4.94 | 1.000 | 0.938 | 0.621 | 0.00 |
+  | cve | 25 | 0.842 | 4.32 | 0.899 | 0.783 | 0.521 | 0.60 |
+  | detection | 20 | 0.837 | 4.58 | 1.000 | 0.400 | 0.130 | 0.00 |
+  | mitigation | 7 | 0.964 | 4.86 | 1.000 | 0.571 | 0.148 | 0.00 |
+  | alert | 5 | 0.739 | 4.40 | 1.000 | 0.750 | 0.258 | 0.20 |
+  | french | 5 | 0.467 | 2.80 | 1.000 | – | 0.140 | 0.00 |
+
+- **Takeaways:** (1) Compared with the 3B sample, the judge's faithfulness barely moves (0.93 → 0.88) while gold-cited goes 0.20 → 0.77 and unsupported ids 1.2 → 0.14: model choice shows up in the citation checks, not in the judge score. (2) Detection questions retrieve the right Sigma rule (R@5 1.0) but the answer cites it only 40% of the time; the prompt asks for "Sigma rules when available" and the model prefers the ATT&CK page. (3) Some answers name ids in prose ("source id: sigma:…") instead of brackets. The parser deliberately does not accept that, because the UI can't link it.
+- **Next:** stricter citation instructions plus one few-shot example in the system prompt (M4 prompt hardening), then re-measure; the per-question rows become router labels in M3.

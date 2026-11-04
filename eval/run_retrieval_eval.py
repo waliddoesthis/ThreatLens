@@ -111,14 +111,16 @@ def main() -> None:
     stem = (
         "retrieval" if settings.vector_store == "qdrant" else f"retrieval-{settings.vector_store}"
     )
-    (out / f"{stem}.json").write_text(json.dumps({"overall": rows, "by_type": by_type}, indent=2))
+    (out / f"{stem}.json").write_text(
+        json.dumps({"overall": rows, "by_type": by_type}, indent=2), encoding="utf-8"
+    )
     header = (
         f"n = {len(qs)} questions, vector store: {settings.vector_store}, "
         f"embeddings: {settings.embedding_model}, reranker: {settings.reranker_model}, "
         f"chunks: {settings.chunk_size_words}/{settings.chunk_overlap_words} words\n\n"
     )
     body = to_markdown(rows) + "\n\n## By question type\n\n" + to_markdown(by_type) + "\n"
-    (out / f"{stem}.md").write_text(header + body)
+    (out / f"{stem}.md").write_text(header + body, encoding="utf-8")
     print(body)
 
 

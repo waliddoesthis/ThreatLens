@@ -106,7 +106,8 @@ def main() -> None:
     (out / f"{stem}.json").write_text(
         json.dumps(
             {"model": args.model, "judge": args.judge, "overall": s, "by_type": by_type}, indent=2
-        )  # fmt: skip
+        ),
+        encoding="utf-8",
     )
     cols = ["n", *SUMMARY, "judge_failures"]
 
@@ -123,7 +124,7 @@ def main() -> None:
     md += [
         "| " + t + " | " + " | ".join(fmt(v[c]) for c in cols) + " |" for t, v in by_type.items()
     ]
-    (out / f"{stem}.md").write_text("\n".join(md) + "\n")
+    (out / f"{stem}.md").write_text("\n".join(md) + "\n", encoding="utf-8")
     print("\n".join(md))
 
 

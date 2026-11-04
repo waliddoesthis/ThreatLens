@@ -88,7 +88,7 @@ def main() -> None:
             rows += r
             by_type += bt
         results[group] = {"overall": rows, "by_type": by_type}
-    (out / "ablation.json").write_text(json.dumps(results, indent=2))
+    (out / "ablation.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
 
     md = [f"n = {results[next(iter(results))]['overall'][0]['n']} questions, "
           f"vector store: {settings.vector_store}, reranker: {settings.reranker_model}\n"]  # fmt: skip
@@ -101,7 +101,7 @@ def main() -> None:
             for r in results[group]["overall"]
         ]
         md += [f"## {group.capitalize()} ablation\n", _table(rows), ""]
-    (out / "ablation.md").write_text("\n".join(md))
+    (out / "ablation.md").write_text("\n".join(md), encoding="utf-8")
     print("\n".join(md))
 
 
