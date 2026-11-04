@@ -9,7 +9,7 @@ from functools import lru_cache
 import numpy as np
 
 from threatlens.config import settings
-from threatlens.index import tokenize
+from threatlens.index import embedding_prefixes, tokenize
 from threatlens.schema import Chunk, RetrievedChunk
 
 
@@ -49,10 +49,8 @@ class HybridRetriever:
 
     def dense_search(self, query: str, k: int) -> list[int]:
         self._load_dense()
-        # bge models recommend this instruction prefix for queries
         qv = self._encoder.encode(
-            "Represent this sentence for searching relevant passages: " + query,
-            normalize_embeddings=True,
+            embedding_prefixes(settings.embedding_model)[0] + query, normalize_embeddings=True
         )
         return self._store.search(qv, k)
 

@@ -15,13 +15,22 @@ class LLMResult:
 
 
 def complete(
-    model: str, messages: list[dict], temperature: float = 0.1, max_tokens: int = 800
+    model: str,
+    messages: list[dict],
+    temperature: float = 0.1,
+    max_tokens: int = 800,
+    **kwargs,
 ) -> LLMResult:
+    """kwargs go to litellm.completion, e.g. response_format={"type": "json_object"}."""
     import litellm
 
     t0 = time.perf_counter()
     resp = litellm.completion(
-        model=model, messages=messages, temperature=temperature, max_tokens=max_tokens
+        model=model,
+        messages=messages,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        **kwargs,
     )
     latency = int((time.perf_counter() - t0) * 1000)
     try:
