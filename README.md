@@ -58,13 +58,17 @@ Takeaways:
 ### Answer quality
 Every answer is scored by an LLM judge (faithfulness = supported claims / claims, relevancy 1–5) **and** by deterministic checks: does it cite only ids it was given, does it cite the gold document, how many statements carry a citation, and does it state CVE / ATT&CK ids that appear in no source ([eval/run_answer_eval.py](eval/run_answer_eval.py)).
 
-First run, a 10-question CPU sample with `llama3.2:3b` as generator and `qwen2.5:7b` as judge ([results](eval/results/answers-llama3.2-3b.md)):
+Full run on 112 questions (the 5 CERT-FR questions were skipped because their advisories had rolled off that machine's feed). Generator `llama3.1:8b`, judge `qwen2.5:7b`, both on an 8 GB RTX 2070 via Ollama, at about 41 s per answer ([results](eval/results/answers-llama3.1-8b.md)):
 
-| Faithfulness (judge) | Relevancy | Gold doc cited | Statements with a citation | Unsupported ids / answer |
-|---|---|---|---|---|
-| 0.93 | 4.5 / 5 | 0.20 | 0.07 | 1.2 |
+| Generator | n | Faithfulness (judge) | Relevancy | Citation validity | Gold doc cited | Statements with a citation | Unsupported ids / answer |
+|---|---|---|---|---|---|---|---|
+| **llama3.1:8b** (GPU) | 112 | **0.875** | **4.61** | **0.974** | **0.765** | **0.444** | **0.14** |
+| llama3.2:3b (CPU sample) | 10 | 0.929 | 4.50 | 1.000 (2 answers) | 0.200 | 0.068 | 1.20 |
 
-The judge rates the answers faithful, but the citation checks show a 3B model mostly ignores the `[source:id]` format and names ATT&CK ids from memory. **That gap is why the deterministic checks exist:** an LLM judge alone would have passed this model. The full 117-question run uses the production small model (`llama3.1:8b`) and a stronger judge.
+- **The judge alone would have picked the wrong model.** It rated the 3B model *more* faithful (0.93 vs 0.88) while the 3B model cited the gold document 4× less often and stated 8× more ATT&CK / CVE ids that appear in no source. That is why the deterministic citation checks sit next to the judge.
+- **llama3.1:8b grounds technique questions well** (faithfulness 0.95, gold cited 0.94) **but not detections** (gold Sigma rule cited 0.40). It cites the ATT&CK technique and skips the rule, which is the gap the M4 prompt work targets.
+- **French is the weak spot end to end**: retrieval finds nothing, so faithfulness falls to 0.47 and relevancy to 2.8, even though the model honestly says the sources don't cover the question.
+- These per-question rows ([jsonl](eval/results/answers-llama3.1-8b.jsonl)) are the training labels for the M3 router.
 
 ## Data
 Public sources only — see [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md). ATT&CK® is a registered trademark of The MITRE Corporation.
