@@ -122,3 +122,8 @@ One entry per non-trivial choice. These are your interview answers.
 
   The judge says the answers are faithful; the citation checks say a 3B model mostly ignores the citation format (8 of 10 answers cite nothing) and lists ATT&CK ids from memory (q025 labels "T1059.001: Path Traversal"; the judge still gave it 1.0). **A 3B model is not good enough for ThreatLens, and a 7B judge is too lenient to be trusted alone.**
 - **Next:** run the full 117 questions with the production small model (`ollama/llama3.1:8b`, GPU) and a stronger judge (`JUDGE_MODEL`, defaults to `LARGE_MODEL`). Those per-question rows are also the training labels for the M3 router ("was the small model good enough?").
+
+## 2026-11-04 — Rebuild the vector store from an empty folder
+- **Finding:** on Windows, rebuilding the index after re-ingest left the Qdrant collection with 6,150 points while `chunks.jsonl` had 6,097, so dense search returned ids past the end of the chunk list and the answer eval crashed with an `IndexError`.
+- **Decision:** `index.build` deletes `data/index/<store>/` before writing vectors, and `dense_search` raises a clear "out of sync, run `make index`" error if the store ever returns an id beyond the chunk list.
+- **Why both:** the first removes the cause; the second turns any future mismatch (manual copy, partial build) into an actionable message instead of a crash deep in retrieval.

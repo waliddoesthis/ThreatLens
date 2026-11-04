@@ -52,7 +52,13 @@ class HybridRetriever:
         qv = self._encoder.encode(
             embedding_prefixes(settings.embedding_model)[0] + query, normalize_embeddings=True
         )
-        return self._store.search(qv, k)
+        ids = self._store.search(qv, k)
+        if any(i >= len(self.chunks) for i in ids):
+            raise RuntimeError(
+                f"dense index at {settings.index_dir} is out of sync with chunks.jsonl "
+                f"({len(self.chunks)} chunks); rebuild it with `make index`"
+            )
+        return ids
 
     def search(
         self, query: str, k: int | None = None, mode: str = "hybrid"
