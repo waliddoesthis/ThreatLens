@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 from threatlens.chunking import chunk_document
 from threatlens.config import settings
-from threatlens.index import embedding_prefixes, tokenize
+from threatlens.index import corpus_refs, embedding_prefixes, tokenize
 from threatlens.schema import Chunk, read_jsonl
 
 
@@ -28,15 +28,6 @@ def load_chunks() -> list[Chunk]:
         for doc in read_jsonl(f):
             chunks += chunk_document(doc, settings.chunk_size_words, settings.chunk_overlap_words)
     return chunks
-
-
-def corpus_refs() -> dict[str, str]:
-    """source -> version, from the ingest manifest (empty if the corpus predates it)."""
-    path = settings.processed_dir / "manifest.json"
-    if not path.exists():
-        return {}
-    manifest = json.loads(path.read_text(encoding="utf-8"))
-    return {name: f"{m['ref']} ({m['documents']} docs)" for name, m in manifest.items()}
 
 
 def build(sparse_only: bool = False) -> None:

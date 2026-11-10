@@ -1,3 +1,4 @@
+import json
 import re
 
 COLLECTION = "threatlens"
@@ -28,3 +29,14 @@ def embedding_prefixes(model_name: str) -> tuple[str, str]:
     if settings.passage_prefix != "auto":
         p = settings.passage_prefix
     return q, p
+
+
+def corpus_refs() -> dict[str, str]:
+    """source -> version, from the ingest manifest (empty if the corpus predates it)."""
+    from threatlens.config import settings
+
+    path = settings.processed_dir / "manifest.json"
+    if not path.exists():
+        return {}
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    return {name: f"{m['ref']} ({m['documents']} docs)" for name, m in manifest.items()}
