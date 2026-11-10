@@ -9,6 +9,7 @@ from threatlens.llm import router
 from threatlens.llm.client import complete
 from threatlens.llm.prompts import build_messages
 from threatlens.retrieval.hybrid import get_retriever
+from threatlens.retrieval.translate import english_variant
 from threatlens.schema import Answer, Chunk, RetrievedChunk
 
 _CVE = re.compile(r"\bCVE-\d{4}-\d{4,}\b", re.I)
@@ -39,7 +40,9 @@ def _nvd_fallback(question: str, chunks: list[RetrievedChunk]) -> list[Retrieved
     return extra + chunks
 
 
-def retrieve(question: str, expand: bool | None = None) -> list[RetrievedChunk]:
+def retrieve(
+    question: str, expand: bool | None = None, top_k: int | None = None
+) -> list[RetrievedChunk]:
     """Hybrid search + rerank, plus two graph steps when `expand` (default: settings):
 
     - **link expansion**: ATT&CK techniques tagged by the Sigma rules among the candidates join
@@ -48,10 +51,15 @@ def retrieve(question: str, expand: bool | None = None) -> list[RetrievedChunk]:
       tags lead to the technique.
     - **exact lookup**: documents whose id the question names (CVE, technique, advisory, rule)
       are put first, whatever the retrievers ranked.
+
+    French questions are additionally searched in English (retrieval.translate).
     """
     expand = settings.graph_expansion if expand is None else expand
+    top_k = top_k or settings.top_k_final
     r = get_retriever()
-    cands = r.search(question, settings.top_k_retrieve)
+    # a French question is also searched in English; the reranker then reads the English wording
+    english = english_variant(question)
+    cands = r.search(question, settings.top_k_retrieve, also=english)
     extra_order: list[int] | None = None
     if expand:
         have = {c.chunk.doc_id for c in cands}
@@ -64,9 +72,9 @@ def retrieve(question: str, expand: bool | None = None) -> list[RetrievedChunk]:
     if settings.use_reranker:
         from threatlens.retrieval.rerank import rerank
 
-        out = rerank(question, cands, settings.top_k_final, extra_order=extra_order)
+        out = rerank(english or question, cands, top_k, extra_order=extra_order)
     else:
-        out = cands[: settings.top_k_final]
+        out = cands[:top_k]
     if expand:
         named = [r.doc(d) for d in r.graph.ids_in(question)]
         ids = {c.doc_id for c in named}

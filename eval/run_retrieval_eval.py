@@ -1,6 +1,6 @@
 """Retrieval ablation: bm25 / dense / hybrid / hybrid+rerank / hybrid+rerank+rrf.
 
-python eval/run_retrieval_eval.py [--modes bm25 dense ...] [--set core|alerts]
+python eval/run_retrieval_eval.py [--modes bm25 dense ... graph graph+translate] [--set core|alerts]
   -> eval/results/retrieval.md (+ .json, + per-question-type breakdown, + 95% bootstrap CIs)
   --set alerts scores eval/questions_alerts.jsonl (Atomic Red Team command lines)
   -> eval/results/retrieval-alerts.md
@@ -28,7 +28,15 @@ from threatlens.index import corpus_refs  # noqa: E402
 from threatlens.retrieval.hybrid import get_retriever  # noqa: E402
 
 HERE = Path(__file__).parent
-MODES = ["bm25", "dense", "hybrid", "hybrid+rerank", "hybrid+rerank+rrf"]
+MODES = [
+    "bm25",
+    "dense",
+    "hybrid",
+    "hybrid+rerank",
+    "hybrid+rerank+rrf",
+    "graph",
+    "graph+translate",
+]
 METRICS = ["recall@5", "recall@10", "mrr@10", "ndcg@10"]
 
 
@@ -58,8 +66,31 @@ def usable_questions(qs: list[dict], known: set[str]) -> list[dict]:
     return out
 
 
+def cache_reranker() -> None:
+    """Memoise cross-encoder scores for this run: three modes rescore the same pairs."""
+    from threatlens.retrieval import rerank as rr
+
+    model, memo = rr._model(), {}
+
+    class Cached:
+        def predict(self, pairs):
+            todo = [p for p in dict.fromkeys(pairs) if p not in memo]
+            if todo:
+                memo.update(zip(todo, (float(s) for s in model.predict(todo)), strict=True))
+            return [memo[p] for p in pairs]
+
+    rr._model = lambda: Cached()
+
+
 def ranked_doc_ids(retriever, q: str, mode: str) -> list[str]:
-    if mode.startswith("hybrid+rerank"):
+    if mode.startswith("graph"):
+        # fused rerank + link expansion + exact id lookup; "+translate" (the production path)
+        # also searches French questions in English, which needs the small LLM to be running
+        from threatlens.pipeline import retrieve
+
+        settings.translate_queries = mode.endswith("+translate")
+        res = retrieve(q, expand=True, top_k=10)
+    elif mode.startswith("hybrid+rerank"):
         from threatlens.retrieval.rerank import rerank
 
         fuse = mode.endswith("+rrf")
@@ -149,6 +180,8 @@ def main() -> None:
     args = p.parse_args()
     modes = args.modes
     retriever = get_retriever()
+    if any("rerank" in m or m.startswith("graph") for m in modes):
+        cache_reranker()
     qs = usable_questions(load_questions(args.qset), {c.doc_id for c in retriever.chunks})
     rows, by_type, raw = evaluate(retriever, qs, modes)
     cis, ci_md = uncertainty(raw)
