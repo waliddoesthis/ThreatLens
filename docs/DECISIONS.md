@@ -144,3 +144,20 @@ One entry per non-trivial choice. These are your interview answers.
 
 - **Takeaways:** (1) Compared with the 3B sample, the judge's faithfulness barely moves (0.93 → 0.88) while gold-cited goes 0.20 → 0.77 and unsupported ids 1.2 → 0.14: model choice shows up in the citation checks, not in the judge score. (2) Detection questions retrieve the right Sigma rule (R@5 1.0) but the answer cites it only 40% of the time; the prompt asks for "Sigma rules when available" and the model prefers the ATT&CK page. (3) Some answers name ids in prose ("source id: sigma:…") instead of brackets. The parser deliberately does not accept that, because the UI can't link it.
 - **Next:** stricter citation instructions plus one few-shot example in the system prompt (M4 prompt hardening), then re-measure; the per-question rows become router labels in M3.
+
+## 2026-11-10 — Router: the low-confidence rule was dead code; use the best cross-encoder score
+- **Finding (project review):** `router.route` sent a query to the large model when `chunks[0].score < 0.0`. `bge-reranker-base` scores come out of a sigmoid (checked: 0.994 for a relevant pair, 0.00004 for an unrelated one), so the rule could never fire. Two more problems hid behind it: with fused reranking the first chunk is not always the best-scored one, and a live NVD record is put first with a fixed score of 1.0 and stage `nvd`.
+- **Decision:** confidence = the **highest cross-encoder score among reranked chunks**; route to the large model when it is below `ROUTER_MIN_CONFIDENCE` (default 0.3). No reranked chunks (reranker off) means no signal, and the rule stays out of the way.
+- **Why 0.3 — measured on the 117 questions, top 6 chunks, fresh corpus:**
+
+  | Threshold | Flags among the 15 questions whose gold doc is not in the top 6 | Flags among the 102 where it is |
+  |---|---|---|
+  | 0.05 | 8 | 0 |
+  | 0.1 | 8 | 3 |
+  | **0.3** | **9** | **4** |
+  | 0.5 | 11 | 7 |
+  | 0.7 | 12 | 16 |
+
+  Eight off-topic questions ("How do I bake sourdough bread?") all score below 0.02. The 6 misses it cannot catch score 0.39–0.94: the reranker is confidently wrong there, which a score threshold will never see.
+- **Limit, kept honest:** a bigger model cannot answer from sources that are not there. For the French and rolled-off CERT-FR questions the right behaviour is to fix retrieval (query translation, M2.5) or to abstain; "low confidence" is one input to the M3 learned router, not the final policy. The threshold was picked on the same 117 questions it is reported on, so M3 must re-check it on held-out questions.
+- **Alternatives:** score gap between rank 1 and 2 (kept as a feature, not a rule); calibrating on RRF scores (not comparable across queries).
