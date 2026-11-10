@@ -1,16 +1,20 @@
 # ThreatLens 🔎
 
-**Agentic RAG copilot for SOC & CTI analysts** — ask about an alert, a log line or a CVE and get a cited answer grounded in MITRE ATT&CK, CISA KEV, NVD, CERT-FR and SigmaHQ.
+**RAG copilot for SOC & CTI analysts** — ask about an alert, a log line or a CVE and get a cited answer grounded in MITRE ATT&CK, CISA KEV, NVD, CERT-FR and SigmaHQ.
 
 > Status: 🚧 work in progress — see [docs/ROADMAP.md](docs/ROADMAP.md)
 
 ## Highlights
+Built and measured:
 - **Hybrid retrieval**: BM25 + dense embeddings fused with RRF, cross-encoder reranking
 - **Cited answers**: every claim points to its source (`[attack:T1059.001]`, `[kev:CVE-2024-3400]`)
-- **Cost-aware LLM routing**: small local model vs large API model, chosen per query
-- **Hardened against prompt injection**: attack/defence benchmark included
-- **Measured**: retrieval & answer-quality benchmark with ablations
-- **Production-ready**: FastAPI, Streamlit, Docker, CI, cloud deployment
+- **Measured**: retrieval and answer-quality benchmark with ablations ([results](#results))
+- **Runs anywhere**: FastAPI, Streamlit, Docker Compose, CI (ruff + pytest)
+
+Planned ([roadmap](docs/ROADMAP.md)), not claimed yet:
+- **Cost-aware LLM routing** (M3): a rule-based router exists; the learned router and the quality-vs-cost numbers do not
+- **Prompt-injection defences** (M4): a heuristic guard and a delimited prompt exist; the attack/defence benchmark does not
+- **Cloud deployment and monitoring** (M5)
 
 ## Architecture
 ```
