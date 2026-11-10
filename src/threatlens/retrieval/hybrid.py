@@ -9,6 +9,7 @@ from functools import lru_cache
 import numpy as np
 
 from threatlens.config import settings
+from threatlens.graph import Graph
 from threatlens.index import embedding_prefixes, tokenize
 from threatlens.schema import Chunk, RetrievedChunk
 
@@ -31,6 +32,12 @@ class HybridRetriever:
             self.bm25 = pickle.load(f)
         self._encoder = None
         self._store = None
+        self.graph = Graph(self.chunks)
+
+    def doc(self, doc_id: str) -> Chunk | None:
+        """First chunk of a document by exact id, or None."""
+        i = self.graph.first_chunk.get(doc_id)
+        return self.chunks[i] if i is not None else None
 
     def _load_dense(self) -> None:
         # loaded on first dense query, so BM25-only runs need no model download

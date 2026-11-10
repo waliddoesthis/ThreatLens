@@ -27,6 +27,11 @@ def check_query(question: str) -> list[str]:
     return [f"query_injection:{m.group(0)[:40]}" for m in _RX.finditer(question)]
 
 
+def sanitize_text(text: str) -> str:
+    """Neutralise injected instructions in free text handed to the model (agent tool output)."""
+    return _RX.sub("[REMOVED: suspected injected instruction]", text)
+
+
 def sanitize_chunks(chunks: list[RetrievedChunk]) -> tuple[list[RetrievedChunk], list[str]]:
     flags, clean = [], []
     for rc in chunks:
