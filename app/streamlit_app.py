@@ -27,18 +27,24 @@ with st.sidebar:
         if st.button(ex[:60] + ("…" if len(ex) > 60 else ""), use_container_width=True):
             st.session_state["q"] = ex
     model_choice = st.radio("Model", ["auto (router)", "small", "large"])
+    agent_mode = st.toggle(
+        "Agent mode",
+        help="The model chooses which tools to call (search, id lookup, KEV status, linked "
+        "Sigma rules and mitigations, NVD) instead of the fixed retrieve-then-answer chain.",
+    )
 
 question = st.text_area("Question, alert or log line", key="q", height=120)
 
 
-def run(q: str, force: str | None) -> dict:
+def run(q: str, force: str | None, mode: str) -> dict:
     if API_URL:
-        r = httpx.post(f"{API_URL}/ask", json={"question": q, "force_model": force}, timeout=180)
+        body = {"question": q, "force_model": force, "mode": mode}
+        r = httpx.post(f"{API_URL}/ask", json=body, timeout=300)
         r.raise_for_status()
         return r.json()
     from threatlens.pipeline import answer
 
-    return answer(q, force_model=force).to_dict()
+    return answer(q, force_model=force, mode=mode).to_dict()
 
 
 if st.button("Ask", type="primary") and question.strip():
@@ -46,7 +52,7 @@ if st.button("Ask", type="primary") and question.strip():
 
     force = {"small": settings.small_model, "large": settings.large_model}.get(model_choice)
     with st.spinner("Retrieving and reasoning…"):
-        res = run(question, force)
+        res = run(question, force, "agent" if agent_mode else "pipeline")
 
     urls = {c["chunk"]["doc_id"]: c["chunk"]["url"] for c in res["citations"]}
 
@@ -70,6 +76,11 @@ if st.button("Ask", type="primary") and question.strip():
         st.metric("Cost", f"${res['cost_usd']:.5f}")
         if res["guard_flags"]:
             st.warning("Guard flags: " + ", ".join(res["guard_flags"]))
+        if res.get("steps"):
+            st.subheader("What the agent did")
+            for n, step in enumerate(res["steps"], start=1):
+                args = ", ".join(f"{k}={v!r}" for k, v in step["args"].items())
+                st.markdown(f"{n}. `{step['tool']}({args})` → {len(step['returned'])} documents")
         st.subheader("Sources")
         for c in res["citations"]:
             ch = c["chunk"]

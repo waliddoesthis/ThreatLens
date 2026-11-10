@@ -17,7 +17,7 @@ _FR = frozenset(
     "le la les des du une un est sont dans pour sur avec par quels quelles quel quelle comment "
     "pourquoi qui que quoi où au aux ce cette ces et ou il elle ils elles ne pas se sa son ses "
     "leur leurs été être avoir fait entre vers chez sans sous après avant lors via contre "
-    "concernant d l qu n s".split()
+    "concernant".split()
 )
 _EN = frozenset(
     "the is are was were of and to in for on with by which what how why who that this these "
@@ -59,8 +59,10 @@ def to_english(question: str) -> str | None:
     except Exception as e:  # no model running: retrieval still works, in one language
         print(f"[translate] skipped ({type(e).__name__}); searching the original question only")
         return None
-    lines = res.text.strip().splitlines()
-    return (lines[0].strip().strip('"').strip() if lines else "") or None
+    # small models sometimes open with a heading ("### English translation:") before the text
+    lines = [ln.strip() for ln in res.text.splitlines()]
+    lines = [ln for ln in lines if ln and not ln.startswith("#") and not ln.endswith(":")]
+    return (lines[0].strip('"').strip() if lines else "") or None
 
 
 def english_variant(question: str) -> str | None:

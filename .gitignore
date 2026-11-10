@@ -11,3 +11,4 @@ data/index-ablation/
 !data/**/.gitkeep
 *.egg-info/
 .DS_Store
+data/exp/

@@ -9,7 +9,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     # Models
-    small_model: str = "ollama/llama3.1:8b"
+    # ollama_chat/ (not ollama/): LiteLLM's ollama/ route flattens the messages into one prompt
+    # ("### System: ..."), so the system prompt is not a real system turn and tools do not work
+    small_model: str = "ollama_chat/llama3.1:8b"
     large_model: str = "anthropic/claude-sonnet-4-5"
     judge_model: str = ""  # LLM-as-judge for the answer eval; empty = large_model
 

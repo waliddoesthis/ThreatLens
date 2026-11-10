@@ -18,6 +18,11 @@ _COMPLEX = re.compile(
 )
 
 
+def looks_like_log(question: str) -> bool:
+    """A pasted alert, log line or command line rather than a question in prose."""
+    return any(s in question for s in ("\\", "=", "EventID", ".exe", "cmd", "|"))
+
+
 @dataclass
 class RouteFeatures:
     n_words: int
@@ -38,7 +43,7 @@ def features(question: str, chunks: list[RetrievedChunk]) -> RouteFeatures:
     return RouteFeatures(
         n_words=len(question.split()),
         n_ids=len(_ID.findall(question)),
-        looks_like_log=any(s in question for s in ("\\", "=", "EventID", ".exe", "cmd", "|")),
+        looks_like_log=looks_like_log(question),
         complex_intent=bool(_COMPLEX.search(question)),
         top_score=top,
         score_gap=gap,

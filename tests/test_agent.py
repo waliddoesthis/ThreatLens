@@ -128,3 +128,35 @@ def test_pipeline_dispatches_to_agent(monkeypatch):
     monkeypatch.setattr(agent, "complete", complete)
     ans = pipeline.answer("hello there", force_model="m", mode="agent")
     assert ans.route_reason.startswith("agent") and ans.steps == []
+
+
+def test_retrieve_reserves_places_for_linked_techniques_and_named_ids(monkeypatch):
+    from threatlens.config import settings
+
+    monkeypatch.undo()  # drop the autouse stub of pipeline.retrieve: this test runs the real one
+    monkeypatch.setattr(settings, "use_reranker", False)
+    monkeypatch.setattr(settings, "translate_queries", False)
+    monkeypatch.setattr(settings, "top_k_final", 3)
+
+    class Sigma1st(FakeRetriever):
+        def search(self, query, k=30, mode="hybrid", also=None):
+            order = [CHUNKS[3], CHUNKS[2], CHUNKS[1], CHUNKS[0]]
+            return [RetrievedChunk(c, 0.5) for c in order]
+
+    monkeypatch.setattr(pipeline, "get_retriever", lambda: Sigma1st())
+
+    # prose question: nothing is added or moved
+    ids = [c.chunk.doc_id for c in pipeline.retrieve("How is LSASS memory dumped?")]
+    assert ids == [RULE, "kev:CVE-2024-3400", "attack:M1043"]
+
+    # command line: the technique tagged by the matching Sigma rule takes the last place
+    out = pipeline.retrieve("rundll32.exe comsvcs.dll, MiniDump 624 out.dmp full")
+    assert [c.chunk.doc_id for c in out] == [RULE, "kev:CVE-2024-3400", "attack:T1003.001"]
+    assert out[-1].stage == "graph"
+
+    # an id named in the question comes first, once
+    out = pipeline.retrieve("Is CVE-2024-3400 exploited?")
+    assert [c.chunk.doc_id for c in out] == ["kev:CVE-2024-3400", RULE, "attack:M1043"]
+    assert out[0].stage == "lookup"
+
+    assert len(pipeline.retrieve("rundll32.exe comsvcs.dll", expand=False)) == 3
