@@ -1,7 +1,7 @@
 """Thin LiteLLM wrapper returning text + cost + latency."""
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -12,6 +12,8 @@ class LLMResult:
     latency_ms: int
     prompt_tokens: int = 0
     completion_tokens: int = 0
+    # [{"id": ..., "name": ..., "arguments": "<json string>"}] when the model asked for tools
+    tool_calls: list[dict] = field(default_factory=list)
 
 
 def complete(
@@ -21,7 +23,7 @@ def complete(
     max_tokens: int = 800,
     **kwargs,
 ) -> LLMResult:
-    """kwargs go to litellm.completion, e.g. response_format={"type": "json_object"}."""
+    """kwargs go to litellm.completion, e.g. response_format={...} or tools=[...]."""
     import litellm
 
     t0 = time.perf_counter()
@@ -38,8 +40,14 @@ def complete(
     except Exception:  # local models have no price -> 0
         cost = 0.0
     usage = getattr(resp, "usage", None)
+    msg = resp.choices[0].message
+    calls = [
+        {"id": c.id, "name": c.function.name, "arguments": c.function.arguments or "{}"}
+        for c in (getattr(msg, "tool_calls", None) or [])
+    ]
     return LLMResult(
-        text=resp.choices[0].message.content or "",
+        text=msg.content or "",
+        tool_calls=calls,
         model=model,
         cost_usd=cost,
         latency_ms=latency,

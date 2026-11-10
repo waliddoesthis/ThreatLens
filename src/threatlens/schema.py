@@ -33,7 +33,7 @@ class Chunk:
 class RetrievedChunk:
     chunk: Chunk
     score: float
-    stage: str = "hybrid"  # bm25 | dense | hybrid | rerank
+    stage: str = "hybrid"  # bm25 | dense | hybrid | rerank | nvd | lookup | graph
 
 
 @dataclass
@@ -45,6 +45,8 @@ class Answer:
     cost_usd: float = 0.0
     latency_ms: int = 0
     guard_flags: list[str] = field(default_factory=list)
+    # agent mode only: the tool calls made, in order ({"tool", "args", "returned"})
+    steps: list[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return asdict(self)
