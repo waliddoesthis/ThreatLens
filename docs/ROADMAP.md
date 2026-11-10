@@ -42,7 +42,7 @@ Tick boxes as you go. Each milestone ends with something measurable for the READ
 **Deliverable:** attack/defence table + one poisoned-doc example in README.
 
 ## M5 — Ship it (week 3)
-- [ ] GitHub Actions CI (ruff + pytest)
+- [x] GitHub Actions CI (ruff + pytest) — runs on every push and PR (light install, model-free tests)
 - [ ] Cloud deployment (Azure Container Apps or AWS App Runner) + live URL
 - [ ] Monitoring dashboard (Streamlit page or Power BI)
 - [ ] README final: diagram, results, demo video, "how to run"

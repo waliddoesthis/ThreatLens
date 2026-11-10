@@ -34,6 +34,8 @@ class Settings(BaseSettings):
 
     # Router
     router_mode: str = "rules"  # rules | always_small | always_large
+    # best cross-encoder score (0-1) below which the small model is not trusted with the answer
+    router_min_confidence: float = 0.3
 
     @property
     def raw_dir(self) -> Path:
