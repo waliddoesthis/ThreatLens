@@ -24,13 +24,16 @@ class RouteFeatures:
     n_ids: int
     looks_like_log: bool
     complex_intent: bool
-    top_score: float
+    top_score: float | None  # best cross-encoder score, None when nothing was reranked
     score_gap: float
 
 
 def features(question: str, chunks: list[RetrievedChunk]) -> RouteFeatures:
-    scores = [c.score for c in chunks]
-    top = scores[0] if scores else 0.0
+    # Only cross-encoder scores are a confidence signal (0-1, sigmoid). RRF scores and the 1.0
+    # given to a live NVD record are not comparable, and with fused reranking the first chunk
+    # is not always the highest-scoring one, so take the max instead of chunks[0].
+    scores = sorted((c.score for c in chunks if c.stage == "rerank"), reverse=True)
+    top = scores[0] if scores else None
     gap = (scores[0] - scores[1]) if len(scores) > 1 else 0.0
     return RouteFeatures(
         n_words=len(question.split()),
@@ -52,7 +55,7 @@ def route(question: str, chunks: list[RetrievedChunk]) -> tuple[str, str]:
     f = features(question, chunks)
     if f.looks_like_log or f.complex_intent or f.n_words > 60:
         return settings.large_model, "complex query (log / multi-step / long)"
-    if chunks and chunks[0].stage == "rerank" and f.top_score < 0.0:
+    if f.top_score is not None and f.top_score < settings.router_min_confidence:
         return settings.large_model, "low retrieval confidence"
     if f.n_ids >= 1 and f.n_words <= 25:
         return settings.small_model, "simple lookup of a known identifier"
