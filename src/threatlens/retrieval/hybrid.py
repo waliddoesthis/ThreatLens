@@ -68,8 +68,10 @@ class HybridRetriever:
         return ids
 
     def search(
-        self, query: str, k: int | None = None, mode: str = "hybrid"
+        self, query: str, k: int | None = None, mode: str = "hybrid", also: str | None = None
     ) -> list[RetrievedChunk]:
+        """`also` is a second wording of the query (its translation); in hybrid mode both
+        wordings are searched and all four rankings are fused."""
         k = k or settings.top_k_retrieve
         if mode == "bm25":
             ids = self.bm25_search(query, k)
@@ -81,7 +83,9 @@ class HybridRetriever:
             return [
                 RetrievedChunk(self.chunks[i], 1.0 / (r + 1), "dense") for r, i in enumerate(ids)
             ]
-        fused = rrf([self.bm25_search(query, k), self.dense_search(query, k)])[:k]
+        rankings = [self.bm25_search(q, k) for q in (query, also) if q]
+        rankings += [self.dense_search(q, k) for q in (query, also) if q]
+        fused = rrf(rankings)[:k]
         return [RetrievedChunk(self.chunks[i], s, "hybrid") for i, s in fused]
 
 

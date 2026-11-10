@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     top_k_final: int = 6
     graph_expansion: bool = True  # link expansion (Sigma -> technique) + exact id lookup
     graph_top_n: int = 3  # techniques added from the Sigma rules' tags
+    translate_queries: bool = True  # search French questions in English too (one small-LLM call)
     chunk_size_words: int = 220
     chunk_overlap_words: int = 40
 

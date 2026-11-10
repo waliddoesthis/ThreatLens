@@ -171,3 +171,42 @@ def test_graph_lookup_votes_and_related():
 
     rel = g.related("t1003.001")
     assert len(rel["sigma_rules"]) == 2 and rel["mitigations"] == ["attack:M1043"]
+
+
+def test_french_detection_is_conservative():
+    from threatlens.retrieval.translate import is_french
+
+    assert is_french("Comment un attaquant vole-t-il les identifiants dans la mémoire de LSASS ?")
+    assert is_french("Quels avis CERT-FR récents concernent Fortinet ?")
+    assert is_french("Persistance via les clés de registre Run au démarrage de session")
+    assert not is_french("How do attackers dump credentials from LSASS?")
+    assert not is_french("Is there a CERT-FR advisory about Suricata?")
+    assert not is_french(r"rundll32.exe C:\Windows\System32\comsvcs.dll, MiniDump 624 la.dmp full")
+    assert not is_french("Is CVE-2024-3400 exploited in the wild?")
+
+
+def test_translation_falls_back_when_no_model(monkeypatch):
+    from threatlens.config import settings
+    from threatlens.llm import client
+    from threatlens.retrieval import translate
+
+    def boom(*a, **k):
+        raise ConnectionError("no ollama")
+
+    translate.to_english.cache_clear()
+    monkeypatch.setattr(client, "complete", boom)
+    assert translate.english_variant("Quels sont les avis sur la faille Ivanti ?") is None
+    assert translate.english_variant("What is Kerberoasting?") is None
+    translate.to_english.cache_clear()
+    monkeypatch.setattr(
+        client,
+        "complete",
+        lambda *a, **k: client.LLMResult('"Ivanti advisories?"\n(note)', "m", 0, 1),
+    )
+    assert (
+        translate.english_variant("Quels sont les avis sur la faille Ivanti ?")
+        == "Ivanti advisories?"
+    )
+    monkeypatch.setattr(settings, "translate_queries", False)
+    assert translate.english_variant("Quels sont les avis sur la faille Ivanti ?") is None
+    translate.to_english.cache_clear()
