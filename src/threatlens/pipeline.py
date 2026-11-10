@@ -43,12 +43,13 @@ def _nvd_fallback(question: str, chunks: list[RetrievedChunk]) -> list[Retrieved
 def retrieve(
     question: str, expand: bool | None = None, top_k: int | None = None
 ) -> list[RetrievedChunk]:
-    """Hybrid search + rerank, plus two graph steps when `expand` (default: settings):
+    """Hybrid search + fused rerank, plus two graph steps when `expand` (default: settings):
 
-    - **link expansion**: ATT&CK techniques tagged by the Sigma rules among the candidates join
-      the candidate pool, and their vote order is fused into the final ranking. A raw command
-      line matches detection rules far better than a technique description; the rules' own
-      tags lead to the technique.
+    - **link expansion** (pasted alerts / command lines only): the ATT&CK techniques tagged by
+      the Sigma rules among the candidates take the last `graph_top_n` places of the context.
+      A raw command line matches detection rules far better than a technique description, and
+      the cross-encoder agrees with the retrievers; the rules' own tags lead to the technique.
+      Reserved places instead of a re-ranking, so prose questions are untouched.
     - **exact lookup**: documents whose id the question names (CVE, technique, advisory, rule)
       are put first, whatever the retrievers ranked.
 
@@ -60,28 +61,23 @@ def retrieve(
     # a French question is also searched in English; the reranker then reads the English wording
     english = english_variant(question)
     cands = r.search(question, settings.top_k_retrieve, also=english)
-    extra_order: list[int] | None = None
-    if expand:
-        have = {c.chunk.doc_id for c in cands}
-        votes = r.graph.technique_votes([c.chunk.doc_id for c in cands])[: settings.graph_top_n]
-        cands = cands + [
-            RetrievedChunk(r.doc(d), score, "graph") for d, score in votes if d not in have
-        ]
-        pos = {c.chunk.doc_id: i for i, c in reversed(list(enumerate(cands)))}
-        extra_order = [pos[d] for d, _ in votes]
     if settings.use_reranker:
         from threatlens.retrieval.rerank import rerank
 
-        out = rerank(english or question, cands, top_k, extra_order=extra_order)
+        out = rerank(english or question, cands, len(cands))
     else:
-        out = cands[:top_k]
-    if expand:
-        named = [r.doc(d) for d in r.graph.ids_in(question)]
-        ids = {c.doc_id for c in named}
-        out = [RetrievedChunk(c, 1.0, "lookup") for c in named] + [
-            c for c in out if c.chunk.doc_id not in ids
-        ]
-    return out
+        out = cands
+    if not expand:
+        return out[:top_k]
+
+    linked: list[RetrievedChunk] = []
+    if router.looks_like_log(question):
+        votes = r.graph.technique_votes([c.chunk.doc_id for c in cands])[: settings.graph_top_n]
+        linked = [RetrievedChunk(r.doc(d), score, "graph") for d, score in votes]
+    named = [RetrievedChunk(r.doc(d), 1.0, "lookup") for d in r.graph.ids_in(question)]
+    taken = {c.chunk.doc_id for c in named + linked}
+    keep = [c for c in out if c.chunk.doc_id not in taken]
+    return named + keep[: max(top_k - len(named) - len(linked), 0)] + linked
 
 
 def answer(question: str, force_model: str | None = None, mode: str | None = None) -> Answer:

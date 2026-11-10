@@ -89,7 +89,9 @@ def ranked_doc_ids(retriever, q: str, mode: str) -> list[str]:
         from threatlens.pipeline import retrieve
 
         settings.translate_queries = mode.endswith("+translate")
-        res = retrieve(q, expand=True, top_k=10)
+        # link expansion reserves the last places of the context, so Recall@5 must be read on
+        # a 5-chunk context and Recall@10 on a 10-chunk one, not on one list cut twice
+        res = retrieve(q, expand=True, top_k=5) + retrieve(q, expand=True, top_k=10)
     elif mode.startswith("hybrid+rerank"):
         from threatlens.retrieval.rerank import rerank
 
