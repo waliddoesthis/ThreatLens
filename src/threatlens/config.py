@@ -40,7 +40,8 @@ class Settings(BaseSettings):
 
     # Agent
     answer_mode: str = "pipeline"  # pipeline (fixed chain) | agent (model chooses tools)
-    agent_max_steps: int = 4  # tool-calling turns before the model must answer
+    agent_max_steps: int = 4  # tool-calling turns before the answer is written
+    agent_max_sources: int = 8  # documents the answer is written from (seeded ones first)
 
     # Router
     router_mode: str = "rules"  # rules | always_small | always_large

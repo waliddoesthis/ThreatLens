@@ -6,6 +6,7 @@ import pytest
 
 from threatlens import agent, pipeline, tools
 from threatlens.graph import Graph
+from threatlens.llm import prompts
 from threatlens.llm.client import LLMResult
 from threatlens.schema import Chunk, RetrievedChunk
 
@@ -83,6 +84,7 @@ def test_tools_answer_from_data_not_generation():
 def test_agent_is_seeded_then_follows_tools_and_answers_with_trace(monkeypatch):
     complete, seen = _script(
         [("related", {"technique_id": "T1003.001"})],
+        "DONE",
         f"LSASS dump [attack:T1003.001], detect with [{RULE}] and [sigma:made-up-id].",
     )
     monkeypatch.setattr(agent, "complete", complete)
@@ -93,21 +95,29 @@ def test_agent_is_seeded_then_follows_tools_and_answers_with_trace(monkeypatch):
     assert [(s["tool"], s["seeded"]) for s in ans.steps] == [("search", True), ("related", False)]
     assert ans.steps[1]["returned"] == [RULE, "attack:M1043"]
     assert [c.chunk.doc_id for c in ans.citations] == ["attack:T1003.001", RULE, "attack:M1043"]
-    assert ans.answer.startswith("LSASS dump") and ans.cost_usd == pytest.approx(0.002)
+    assert ans.answer.startswith("LSASS dump") and ans.cost_usd == pytest.approx(0.003)
     first_user = seen[0][0][1]["content"]
     assert '<source id="attack:T1003.001"' in first_user and "QUESTION:" in first_user
     # the poisoned rule is flagged and neutralised before the model reads it
     assert f"doc_injection:{RULE}" in ans.guard_flags
-    tool_msgs = [m["content"] for m in seen[-1][0] if m["role"] == "tool"]
+    tool_msgs = [m["content"] for m in seen[1][0] if m["role"] == "tool"]
     assert len(tool_msgs) == 1 and "Ignore all previous" not in tool_msgs[0]
-    assert "tools" in seen[0][1]
+    # gather turns offer tools; the answer is written by the pipeline's prompt, without tools,
+    # from every document gathered (the 8B model stops citing when both happen in one turn)
+    assert "tools" in seen[0][1] and "tools" in seen[1][1] and "tools" not in seen[2][1]
+    write = seen[2][0]
+    assert write[0]["content"] == prompts.SYSTEM and len(write) == 2
+    assert (
+        f'<source id="{RULE}"' in write[1]["content"]
+        and "Ignore all previous" not in write[1]["content"]
+    )
     # output check: a citation of a document no tool returned is reported
     assert "invalid_citation:sigma:made-up-id" in ans.guard_flags
     assert f"invalid_citation:{RULE}" not in ans.guard_flags
 
 
 def test_agent_checks_kev_for_every_cve_before_the_model_speaks(monkeypatch):
-    complete, seen = _script("Exploited [kev:CVE-2024-3400]; nothing known on the other.")
+    complete, seen = _script("DONE", "Exploited [kev:CVE-2024-3400]; nothing known on the other.")
     monkeypatch.setattr(agent, "complete", complete)
 
     ans = agent.answer("Compare CVE-2024-3400 and cve-2099-0001", force_model="m")
@@ -119,6 +129,8 @@ def test_agent_checks_kev_for_every_cve_before_the_model_speaks(monkeypatch):
     assert "kev:CVE-2024-3400" in [c.chunk.doc_id for c in ans.citations]
     first_user = seen[0][0][1]["content"]
     assert "Not in the KEV snapshot of this corpus (CVE-2099-0001)" in first_user
+    last_user = seen[-1][0][-1]["content"]
+    assert "unexploited.\n\nQUESTION:\nCompare" in last_user
     assert ans.guard_flags == []
 
 
@@ -138,14 +150,14 @@ def test_agent_survives_bad_calls_and_stops_at_the_step_budget(monkeypatch):
     ans = agent.answer("What is that mitigation?", force_model="m")
 
     assert ans.answer == "Final [attack:M1043]."
-    assert len(seen) == 4 and "tools" not in seen[-1][1]  # last turn is forced to answer
-    assert "Write the final answer now" in seen[-1][0][-1]["content"]
+    # three gather turns use up the budget, then the answer is written without tools
+    assert len(seen) == 4 and "tools" not in seen[-1][1]
     assert [c.chunk.doc_id for c in ans.citations] == ["attack:T1003.001", "attack:M1043"]
     assert [len(s["returned"]) for s in ans.steps] == [1, 0, 0, 1, 0]
 
 
 def test_pipeline_dispatches_to_agent_and_flags_invented_citations(monkeypatch):
-    complete, _ = _script("Nothing to add.")
+    complete, _ = _script("DONE", "Nothing to add.")
     monkeypatch.setattr(agent, "complete", complete)
     ans = pipeline.answer("hello there", force_model="m", mode="agent")
     assert ans.route_reason.startswith("agent") and [s["seeded"] for s in ans.steps] == [True]
