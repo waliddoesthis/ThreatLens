@@ -80,7 +80,10 @@ if st.button("Ask", type="primary") and question.strip():
             st.subheader("What the agent did")
             for n, step in enumerate(res["steps"], start=1):
                 args = ", ".join(f"{k}={v!r}" for k, v in step["args"].items())
-                st.markdown(f"{n}. `{step['tool']}({args})` → {len(step['returned'])} documents")
+                who = "automatic" if step.get("seeded") else "chosen by the model"
+                st.markdown(
+                    f"{n}. `{step['tool']}({args})` → {len(step['returned'])} documents ({who})"
+                )
         st.subheader("Sources")
         for c in res["citations"]:
             ch = c["chunk"]

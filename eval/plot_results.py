@@ -51,7 +51,12 @@ def figure(rows, label_key, title, out, highlight=None):
 def main() -> None:
     ret = json.loads((RES / "retrieval.json").read_text())["overall"]
     n = ret[0]["n"]
-    figure(ret, "mode", f"Retrieval ablation ({n} questions)", "retrieval.png", "hybrid+rerank+rrf")
+    figure(ret, "mode", f"Retrieval ablation ({n} questions)", "retrieval.png", "graph+translate")
+    alerts_file = RES / "retrieval-alerts.json"
+    if alerts_file.exists():
+        al = json.loads(alerts_file.read_text())["overall"]
+        title = f"Real command lines from Atomic Red Team ({al[0]['n']} alerts)"
+        figure(al, "mode", title, "retrieval-alerts.png", "graph")
     abl_file = RES / "ablation.json"
     if abl_file.exists():
         abl = json.loads(abl_file.read_text())

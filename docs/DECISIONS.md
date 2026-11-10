@@ -161,3 +161,66 @@ One entry per non-trivial choice. These are your interview answers.
   Eight off-topic questions ("How do I bake sourdough bread?") all score below 0.02. The 6 misses it cannot catch score 0.39–0.94: the reranker is confidently wrong there, which a score threshold will never see.
 - **Limit, kept honest:** a bigger model cannot answer from sources that are not there. For the French and rolled-off CERT-FR questions the right behaviour is to fix retrieval (query translation, M2.5) or to abstain; "low confidence" is one input to the M3 learned router, not the final policy. The threshold was picked on the same 117 questions it is reported on, so M3 must re-check it on held-out questions.
 - **Alternatives:** score gap between rank 1 and 2 (kept as a feature, not a rule); calibrating on RRF scores (not comparable across queries).
+
+## 2026-11-10 — Pin every data source; the benchmark was silently losing questions
+- **Finding:** ATT&CK and Sigma were fetched from their default branches, KEV from the live feed and CERT-FR from an RSS feed that keeps ~40 items. On a fresh ingest **all 6 CERT-FR advisories the benchmark uses had rolled off the feed**, so those questions were dropped (the eval skips gold ids missing from the corpus) and nothing failed.
+- **Decision:** `ingest/pins.py` holds one version per source: ATT&CK `ATT&CK-v20.1`, Sigma `r2026-07-01`, KEV at a `cisagov/kev-data` commit. CERT-FR advisories named in `CERTFR_PINNED` are fetched by reference (JSON endpoint, HTML page for CTI reports) and anything ingested earlier is kept. `DATA_PIN=latest` tracks upstream for a demo corpus. Every ingest writes `data/processed/manifest.json`; eval reports print it.
+- **Cost of pinning, measured:** same 117 questions, fused rerank: Recall@5 0.910 → 0.905, MRR@10 0.741 → 0.741. The corpus changed slightly (Sigma release vs master: 3,142 vs 3,164 rules), the conclusions did not.
+- **Alternatives:** committing the corpus to the repo (licences, 12 MB of churn); a hash check only (detects drift, does not prevent it).
+
+## 2026-11-10 — Confidence intervals: two M1/M2 conclusions were stated too strongly
+- **Decision:** the retrieval eval reports a 95% bootstrap interval per mode (2,000 resamples of the questions, seeded) and a **paired** difference to plain hybrid.
+- **What it changes (117 questions, pinned corpus):**
+
+  | Mode | Recall@5 | 95% CI | Δ vs hybrid (95% CI) |
+  |---|---|---|---|
+  | BM25 | 0.746 | 0.665–0.821 | −0.141 (−0.218 to −0.073) |
+  | Dense | 0.875 | 0.813–0.929 | −0.013 (−0.051 to +0.026) |
+  | Hybrid | 0.887 | 0.825–0.943 | – |
+  | Hybrid + rerank | 0.845 | 0.778–0.906 | −0.043 (−0.103 to +0.009) |
+  | Hybrid + rerank, RRF-fused | 0.905 | 0.848–0.956 | +0.017 (−0.017 to +0.051) |
+
+  Only "BM25 alone is worse" survives. **Hybrid vs dense and the fused reranker's gain are not distinguishable from zero on 117 questions.** The earlier entries say "hybrid beats either retriever" and "fused rerank is best"; the honest wording is "consistently ahead, not significantly". The reranker stays on because its score is the router's confidence signal, not because of +0.017.
+- **Why paired:** both systems answer the same questions, so resampling questions and differencing removes the question-difficulty variance. Unpaired intervals overlap even when one system wins on every resample.
+
+## 2026-11-10 — Alert benchmark from Atomic Red Team: the 5 hand-written alerts were flattering
+- **Decision:** `eval/build_alert_questions.py` builds `eval/questions_alerts.jsonl` from Atomic Red Team (MIT, commit `a0e3f9bc`): Windows tests run from cmd or PowerShell, **single-command tests only** (multi-line tests start with setup lines such as TLS settings, which would be mislabelled), input arguments replaced by defaults, one test per technique, commands naming a technique id dropped (label leak). **107 questions, one gold technique each.** Atomic Red Team is evaluation-only and never indexed.
+- **Result:** the 5 alert questions I wrote in M2 score Recall@5 0.70. Real command lines score **0.15** with the same retrieval (BM25 0.159, dense 0.056, hybrid 0.103, fused rerank 0.150). Alerts are the first use case in the SPEC, and the benchmark had 5 of them, written by the person who built the retriever.
+- **Why it is this low:** a command line (`vssadmin.exe delete shadows /all /quiet`) shares almost no vocabulary with a technique description, dense retrieval was not trained on command lines, and the cross-encoder agrees with the retrievers. The gold is also strict: one sub-technique, no credit for the parent or a sibling.
+- **Alternatives:** more hand-written alerts (same author bias); Sigma rule test data (the rules are in the corpus: leak); Splunk attack_data logs (heavier, kept for later).
+
+## 2026-11-10 — Knowledge graph: follow the Sigma rules' tags; reserved places, not re-ranking
+- **Decision:** `graph.py` derives three kinds of edges from data already ingested: Sigma rule → technique (rule tags), technique → mitigation (STIX `mitigates`, now kept at ingest) and id → document. `pipeline.retrieve` uses two of them:
+  - **link expansion** for pasted alerts / command lines (`router.looks_like_log`): the techniques tagged by the Sigma rules among the 30 candidates, voted with weight 1/(60+rank), take the last 3 places of the context;
+  - **exact lookup**: documents whose id the question names go first.
+- **First design, rejected by measurement:** fusing the vote order into the ranking as a third RRF list, for every question. Alerts went up, but the core benchmark fell from MRR@10 0.741 to 0.473: detection and CVE questions also retrieve Sigma rules, and the voted techniques jumped above the gold document. Adding the voted techniques to the reranker's pool without the third list did nothing at all: the cross-encoder ranks a technique description below the rules for a raw command line.
+- **Chosen on half the data:** the number of reserved places (1, 2 or 3) was picked on the odd-numbered alert questions and checked on the even ones.
+
+  | 5-chunk context, Recall@5 | Fused rerank | + link expansion | Paired Δ (95% CI) |
+  |---|---|---|---|
+  | Alerts, odd half (used to choose, n=54) | 0.167 | 0.352 | +0.185 (+0.056 to +0.315) |
+  | Alerts, even half (held out, n=53) | 0.132 | 0.302 | +0.170 (+0.057 to +0.302) |
+  | Alerts, all 107 | 0.150 | 0.327 | +0.178 (+0.093 to +0.262) |
+  | Core 117 questions | 0.905 | 0.900 | within noise |
+
+- **Still weak, stated plainly:** one alert in three. On the core set the 20 detection questions lose one hit (0.967 → 0.917): a question such as "Detect bitsadmin /transfer…" looks like a log line, and three places go to techniques. Next levers: an encoder that has seen command lines, ATT&CK procedure examples as extra documents, a better "is this a log line" test than six substrings.
+- **Alternatives:** a graph database (three dictionaries are enough at 5,700 documents); LLM-extracted entities (the links here are published by the sources, not guessed).
+
+## 2026-11-10 — French: translate the query, search both wordings
+- **Decision:** `retrieval/translate.py` detects French with function-word counts (no model), has the small LLM translate the question once, and fuses four rankings: BM25 and dense for the original and for the English wording. The cross-encoder reads the English wording. Without a running model it falls back to the original question.
+- **Result (pinned corpus):** French questions Recall@5 **0.0 → 1.0** (5 of 5), CERT-FR questions stay at 1.0, and the full path (link expansion + translation) reaches **Recall@5 0.943 vs 0.887 for plain hybrid, paired Δ +0.056 (95% CI +0.013 to +0.107)**: the first retrieval change in this project whose interval excludes zero. Translation costs one small-model call (about 3 s on 4 CPUs).
+- **Two bugs found on the way:** the first run made French *worse*. (1) The detector counted single letters, so `regsvr32 /s /n /u` was "French". (2) Translations came back as "### System:"; see the next entry.
+- **Caveat:** 5 French questions. The interval on the whole benchmark is honest; "French is solved" would not be.
+- **Alternatives:** multilingual encoder (measured in M2: French 0.2–0.4 and English drops); translating the corpus (CERT-FR is the only French source and its questions already score 1.0).
+
+## 2026-11-10 — `ollama_chat/`, not `ollama/`: the system prompt was not a system prompt
+- **Finding:** with `SMALL_MODEL=ollama/llama3.1:8b`, LiteLLM calls Ollama's generate endpoint and flattens the messages into one text ("### System: … ### User: …"). The model's chat template never sees a system turn, some replies start with "### System:", and tool calling is unavailable. `ollama_chat/llama3.1:8b` uses the chat endpoint.
+- **Decision:** the default small model is `ollama_chat/llama3.1:8b`.
+- **Consequence:** the M2 answer-quality numbers (faithfulness 0.875, gold cited 0.765) were measured through the flattened route. They are kept as measured and must be re-run through the chat route before being compared with anything new.
+
+## 2026-11-10 — Agent mode: retrieval is seeded, the model chooses what to look up next
+- **Decision:** `agent.py` is a bounded tool-calling loop over LiteLLM (no framework). Five tools in `tools.py`, each a plain function over the index and the graph: `search`, `lookup` (exact id), `kev_status`, `related` (a technique's Sigma rules and mitigations) and `nvd`. Before the model says anything, the system runs the production retrieval on the question and `kev_status` on every CVE it names; the model then gets at most `AGENT_MAX_STEPS` (4) tool turns and a final turn without tools. Tool output passes through the guard, repeated calls are not executed twice, every call lands in `Answer.steps`, and citations of documents no tool returned are reported as `invalid_citation:` flags (also in the fixed pipeline).
+- **Why seeded — what the first trial showed:** with free tool choice, `llama3.1:8b` (4 questions, CPU) made exactly one call per question and then wrote from memory. For "How do I detect and mitigate Kerberoasting?" it called `lookup("T1505")` (Kerberoasting is T1558.003) and cited a Sigma rule id that does not exist. The fixed pipeline answered the same questions better. An 8B model is a poor planner but a usable follow-up caller: seeded with the retrieved sources, the same question led to `related("T1558.003")` and an answer listing that technique's real rules and mitigations (M1026, M1027, M1041), and no invalid citation was flagged in the 4 answers.
+- **What is not shown:** this is a 4-question smoke test, not a result. The seeded agent still mislabelled a technique name from memory ("T1036: Data Encrypted") and dropped the `[source:id]` format in places, and on 4 CPUs it takes 2–4 minutes per answer. Whether agent mode beats the pipeline on faithfulness and citations is the job of `make eval-answers-agent` on a GPU. Until then the pipeline stays the default (`ANSWER_MODE=pipeline`).
+- **Why "agentic" is back in the README:** the model does choose and call tools. The claim is limited on purpose: retrieval first, the model second.
+- **Alternatives:** LangGraph or another agent framework (CLAUDE.md keeps frameworks out of the core; the loop is 160 lines); ReAct text parsing (native tool calls are more reliable on small models); letting the model plan freely (measured above, worse).

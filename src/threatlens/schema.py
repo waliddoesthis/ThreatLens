@@ -45,7 +45,7 @@ class Answer:
     cost_usd: float = 0.0
     latency_ms: int = 0
     guard_flags: list[str] = field(default_factory=list)
-    # agent mode only: the tool calls made, in order ({"tool", "args", "returned"})
+    # agent mode only: the tool calls made, in order ({"tool", "args", "returned", "seeded"})
     steps: list[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
