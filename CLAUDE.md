@@ -3,7 +3,7 @@
 Context for Claude (Claude Code, Cowork, or a Claude Project) working on this repo.
 
 ## What this is
-ThreatLens is a **RAG copilot for SOC / CTI analysts** (a tool-using agent loop is planned for M2.5; do not call it "agentic" before that ships). Input: a question, an alert, a log line or a CVE ID.
+ThreatLens is an **agentic RAG copilot for SOC / CTI analysts**: a fixed retrieval pipeline plus an agent mode in which the model calls tools after a forced first retrieval. Input: a question, an alert, a log line or a CVE ID.
 Output: a cited answer, the related MITRE ATT&CK techniques, exploitation status (CISA KEV) and suggested Sigma detection rules.
 
 It is a **portfolio project** (author: Walid Ichchou). Every feature must be demoable and **measured**.
@@ -19,10 +19,13 @@ It is a **portfolio project** (author: Walid Ichchou). Every feature must be dem
 src/threatlens/
   config.py          settings from .env (pydantic-settings)
   schema.py          Document / Chunk / RetrievedChunk dataclasses
-  ingest/            one module per source -> data/processed/<source>.jsonl
+  ingest/            one module per source -> data/processed/<source>.jsonl (versions in pins.py)
   chunking.py        document -> chunks
   index/build.py     dense index (Qdrant local) + BM25 index
-  retrieval/         hybrid search (RRF) + cross-encoder reranker
+  retrieval/         hybrid search (RRF) + cross-encoder reranker + French query translation
+  graph.py           Sigma -> technique -> mitigation links and exact id lookup
+  tools.py           tools the agent can call (search, lookup, kev_status, related, nvd)
+  agent.py           agent mode: seeded retrieval, then a bounded tool-calling loop
   llm/               LiteLLM client, prompts, cost-aware router
   guard.py           prompt-injection detection / sanitisation
   pipeline.py        answer(question) -> Answer   (the main entry point)
@@ -40,8 +43,10 @@ make index        # build dense + BM25 indexes
 make api          # uvicorn on :8000
 make ui           # streamlit on :8501
 make eval         # retrieval benchmark -> eval/results/
+make eval-alerts  # 107 Atomic Red Team command lines -> eval/results/retrieval-alerts.md
 make eval-ablation  # chunk-size + embedding-model ablations
 make eval-answers   # faithfulness + citation accuracy (needs an LLM)
+make eval-answers-agent  # same, in agent mode
 make plots        # README charts -> docs/img/
 make test         # pytest
 ```
@@ -53,6 +58,9 @@ make test         # pytest
 - Answers MUST cite chunk ids as `[source:id]`; the UI turns them into links.
 - No secrets in code. Read from `.env` via `config.settings`.
 - Raw downloads go to `data/raw/`, normalised JSONL to `data/processed/`, indexes to `data/index/` (all git-ignored).
+- Data sources are pinned (`ingest/pins.py`); moving a pin means re-running the evals and logging the new numbers.
+- Report retrieval results with their bootstrap interval; a difference whose interval contains 0 is "not shown", not a win.
+- Local models go through `ollama_chat/`, never `ollama/` (flattened system prompt, no tools).
 - Each new feature: code + test + a number in `eval/results/` + a line in `docs/ROADMAP.md`.
 - Log design choices in `docs/DECISIONS.md` (date, decision, alternatives, why).
 

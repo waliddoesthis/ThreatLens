@@ -28,6 +28,18 @@ Tick boxes as you go. Each milestone ends with something measurable for the READ
 - [x] Answer faithfulness + citation accuracy — llama3.1:8b on 112 q: faithfulness 0.875, citation validity 0.974, gold doc cited 0.765 (detections only 0.40); LLM judge alone ranked a 3B model higher
 **Deliverable:** results table + bar chart in README.
 
+## M2.5 — Review fixes, graph and agent mode
+- [x] Pin every data source + ingest manifest — ATT&CK v20.1, Sigma r2026-07-01, KEV snapshot, 6 CERT-FR advisories by reference (all 6 had rolled off the RSS feed); pinning moved Recall@5 0.910 → 0.905
+- [x] Bootstrap confidence intervals + paired differences in the retrieval eval — hybrid vs dense and the reranker's +0.017 are not distinguishable from zero on 117 questions
+- [x] Alert benchmark from Atomic Red Team — 107 real command lines; fused rerank Recall@5 0.150 (hand-written alerts: 0.70)
+- [x] Knowledge graph (Sigma → technique → mitigation, id → document) + link expansion for alerts — Recall@5 0.150 → 0.327 on the 107 alerts (held-out half 0.132 → 0.302); core set unchanged within noise
+- [x] French query translation — French Recall@5 0.0 → 1.0 (5 questions); full path 0.943 vs 0.887 for plain hybrid (Δ +0.056, 95% CI +0.013 to +0.107)
+- [x] Router low-confidence rule fixed (it could never fire); threshold 0.3 from data
+- [x] Agent mode: seeded retrieval + 5 tools, bounded loop, citation check, UI trace — unit-tested; 4-question trial with llama3.1:8b on CPU only
+- [ ] Agent vs pipeline on the full answer benchmark (`make eval-answers-agent`, needs a GPU)
+- [ ] Re-run the M2 answer eval through `ollama_chat/` on the pinned corpus (the M2 numbers used a route that flattens the system prompt)
+**Deliverable:** alert benchmark chart + "follow the links" result in README.
+
 ## M3 — Cost-aware router (week 2)
 - [ ] Log cost/latency per query
 - [ ] Rule-based router v1

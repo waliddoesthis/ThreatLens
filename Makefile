@@ -1,4 +1,4 @@
-.PHONY: install ingest index api ui eval eval-ablation eval-answers plots test lint docker
+.PHONY: install ingest index api ui eval eval-alerts eval-ablation eval-answers eval-answers-agent plots test lint docker
 
 install:
 	pip install -e ".[dev]"
@@ -18,11 +18,17 @@ ui:
 eval:
 	python eval/run_retrieval_eval.py
 
+eval-alerts:
+	python eval/run_retrieval_eval.py --set alerts --modes bm25 dense hybrid hybrid+rerank+rrf graph
+
 eval-ablation:
 	python eval/run_ablation.py
 
 eval-answers:
 	python eval/run_answer_eval.py
+
+eval-answers-agent:
+	python eval/run_answer_eval.py --mode agent
 
 plots:
 	python eval/plot_results.py

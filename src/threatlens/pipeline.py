@@ -96,6 +96,7 @@ def answer(question: str, force_model: str | None = None, mode: str | None = Non
     model, reason = (force_model, "forced") if force_model else router.route(question, chunks)
     res = complete(model, build_messages(question, chunks))
 
+    flags += guard.check_citations(res.text, {c.chunk.doc_id for c in chunks})
     return Answer(
         answer=res.text,
         citations=chunks,

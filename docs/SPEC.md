@@ -18,12 +18,17 @@ SOC and CTI analysts lose time jumping between MITRE ATT&CK, NVD, CISA KEV, CERT
             └─────────────────────────────────┘
             ┌──────────── online ─────────────┐
  query ─► guard (injection check)
-       ─► hybrid retrieval (dense + BM25, fused with RRF, top 30)
-       ─► cross-encoder rerank (top 6) ─► NVD live lookup for unknown CVE ids
+       ─► hybrid retrieval (dense + BM25, fused with RRF, top 30; French also searched in English)
+       ─► cross-encoder rerank (top 6)
+       ─► graph: exact id lookup first; for alerts, techniques tagged by the matching Sigma rules
+       ─► NVD live lookup for unknown CVE ids
        ─► guard (sanitise retrieved text)
        ─► router (small vs large LLM — uses retrieval confidence, so it runs after retrieval)
-       ─► LLM generate (cited answer) ─► Answer {text, citations, model, cost, latency, flags}
+       ─► LLM generate (cited answer) ─► citation check
+       ─► Answer {text, citations, model, cost, latency, flags, steps}
             └─────────────────────────────────┘
+ agent mode: the same retrieval (+ KEV check on named CVEs) runs first, then the LLM may call
+ tools (lookup, kev_status, related, nvd, search) for at most 4 turns before answering.
 ```
 
 ## 4. Components
@@ -34,16 +39,19 @@ SOC and CTI analysts lose time jumping between MITRE ATT&CK, NVD, CISA KEV, CERT
 | Sparse | `rank_bm25` | exact matches on IDs (CVE-, T1059) matter a lot here | Qdrant sparse vectors / SPLADE |
 | Fusion | Reciprocal Rank Fusion (k=60) | parameter-free, robust | learned weights |
 | Reranker | `BAAI/bge-reranker-base` cross-encoder | big precision gain on top-k | none / smaller reranker (ablation) |
-| LLM | LiteLLM → Ollama `llama3.1:8b` (small) + one API model (large) | one interface, swap providers | vLLM self-hosting |
+| Graph | three dictionaries built from chunk metadata (Sigma tags, STIX `mitigates`) | the sources publish the links; nothing to extract or host | graph DB if relations grow |
+| LLM | LiteLLM → Ollama `ollama_chat/llama3.1:8b` (small) + one API model (large) | one interface, swap providers | vLLM self-hosting |
 | API / UI | FastAPI / Streamlit | standard, quick | Next.js |
 
 ## 5. Interfaces
 ```python
-pipeline.answer(question: str, *, force_model: str | None = None) -> Answer
+pipeline.answer(question: str, *, force_model: str | None = None,
+                mode: "pipeline" | "agent" | None = None) -> Answer
 Answer = {answer: str, citations: list[RetrievedChunk], model: str,
-          route_reason: str, cost_usd: float, latency_ms: int, guard_flags: list[str]}
+          route_reason: str, cost_usd: float, latency_ms: int, guard_flags: list[str],
+          steps: list[{tool, args, returned, seeded}]}   # steps: agent mode only
 ```
-`POST /ask {"question": "..."}` → `Answer` JSON. `GET /health`.
+`POST /ask {"question": "...", "mode": "agent"}` → `Answer` JSON. `GET /health`.
 
 ## 6. The four differentiators (each must produce a result in the README)
 1. **Retrieval evaluation** — `eval/questions.jsonl` (target: 100+ questions with gold doc ids).
