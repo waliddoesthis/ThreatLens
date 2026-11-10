@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     data_dir: Path = Path("data")
     index_path: Path | None = None  # default data/index; the M2 ablations build one per config
     nvd_api_key: str = ""
+    data_pin: str = "pinned"  # pinned (versions in ingest/pins.py) | latest (track upstream)
 
     # Router
     router_mode: str = "rules"  # rules | always_small | always_large
