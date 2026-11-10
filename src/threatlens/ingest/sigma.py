@@ -1,4 +1,4 @@
-"""SigmaHQ detection rules (YAML) from the GitHub master archive.
+"""SigmaHQ detection rules (YAML) from a GitHub archive (pinned release tag, or master).
 
 Falls back to a shallow `git clone` when the archive download is refused (some proxies
 allow git but not codeload.github.com).
@@ -14,14 +14,18 @@ import httpx
 import yaml
 
 from threatlens.config import settings
-from threatlens.ingest import clean_stix_text, download, processed_path
+from threatlens.ingest import clean_stix_text, download, pins, processed_path
 from threatlens.schema import Document, write_jsonl
 
-URL = "https://github.com/SigmaHQ/sigma/archive/refs/heads/master.zip"
+_URL = "https://github.com/SigmaHQ/sigma/archive/refs/{kind}/{ref}.zip"
 GIT_URL = "https://github.com/SigmaHQ/sigma"
 
 
-def rule_to_doc(rule: dict, path: str) -> Document | None:
+def _git_ref() -> str:
+    return pins.SIGMA_TAG if pins.pinned() else "master"
+
+
+def rule_to_doc(rule: dict, path: str, ref: str = "master") -> Document | None:
     if not isinstance(rule, dict) or "title" not in rule or "id" not in rule:
         return None
     tags = rule.get("tags", []) or []
@@ -42,7 +46,7 @@ def rule_to_doc(rule: dict, path: str) -> Document | None:
         source="sigma",
         title=rule["title"],
         text=text,
-        url=f"https://github.com/SigmaHQ/sigma/blob/master/{path}",
+        url=f"https://github.com/SigmaHQ/sigma/blob/{ref}/{path}",
         metadata={"techniques": techniques, "level": rule.get("level"), "logsource": logsource},
     )
 
@@ -62,18 +66,35 @@ def _from_dir(root: Path) -> Iterator[tuple[str, bytes]]:
 
 
 def _fetch(force: bool) -> Iterator[tuple[str, bytes]]:
+    ref = _git_ref()
+    url = _URL.format(kind="tags" if pins.pinned() else "heads", ref=ref)
     try:
-        return _from_zip(download(URL, settings.raw_dir / "sigma-master.zip", force=force))
+        return _from_zip(download(url, settings.raw_dir / f"sigma-{ref}.zip", force=force))
     except httpx.HTTPError as e:
         print(f"[sigma] archive download failed ({e}); falling back to git clone")
-    repo = settings.raw_dir / "sigma"
+    repo = settings.raw_dir / f"sigma-{ref}"
     if force or not (repo / "rules").is_dir():
         shutil.rmtree(repo, ignore_errors=True)
-        subprocess.run(["git", "clone", "-q", "--depth", "1", GIT_URL, str(repo)], check=True)
+        subprocess.run(
+            [
+                "git",
+                "-c",
+                "advice.detachedHead=false",
+                "clone",
+                "-q",
+                "--depth",
+                "1",
+                "--branch",
+                ref,
+                GIT_URL,
+                str(repo),
+            ],
+            check=True,
+        )
     return _from_dir(repo)
 
 
-def parse_files(files: Iterator[tuple[str, bytes]]) -> list[Document]:
+def parse_files(files: Iterator[tuple[str, bytes]], ref: str = "master") -> list[Document]:
     docs = []
     for path, data in files:
         # keep only the main rule set: rules/**.yml
@@ -83,11 +104,11 @@ def parse_files(files: Iterator[tuple[str, bytes]]) -> list[Document]:
             rule = yaml.safe_load(data)
         except yaml.YAMLError:
             continue
-        doc = rule_to_doc(rule, path)
+        doc = rule_to_doc(rule, path, ref)
         if doc:
             docs.append(doc)
     return docs
 
 
 def ingest(force: bool = False) -> int:
-    return write_jsonl(processed_path("sigma"), parse_files(_fetch(force)))
+    return write_jsonl(processed_path("sigma"), parse_files(_fetch(force), _git_ref()))

@@ -1,12 +1,17 @@
 """MITRE ATT&CK Enterprise (STIX 2.1) -> techniques + mitigations."""
 
 import json
+from urllib.parse import quote
 
 from threatlens.config import settings
-from threatlens.ingest import clean_stix_text, download, processed_path
+from threatlens.ingest import clean_stix_text, download, pins, processed_path
 from threatlens.schema import Document, write_jsonl
 
-URL = "https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json"
+_URL = "https://raw.githubusercontent.com/mitre/cti/{ref}/enterprise-attack/enterprise-attack.json"
+
+
+def source_url() -> str:
+    return _URL.format(ref=quote(pins.ATTACK_TAG) if pins.pinned() else "master")
 
 
 def _attack_ref(obj: dict) -> tuple[str, str]:
@@ -62,6 +67,9 @@ def parse(bundle: dict) -> list[Document]:
 
 
 def ingest(force: bool = False) -> int:
-    raw = download(URL, settings.raw_dir / "enterprise-attack.json", force=force)
+    # one raw file per version, so switching the pin never reuses another version's download
+    raw = download(
+        source_url(), settings.raw_dir / f"enterprise-attack-{pins.ref('attack')}.json", force=force
+    )
     bundle = json.loads(raw.read_text(encoding="utf-8"))
     return write_jsonl(processed_path("attack"), parse(bundle))
