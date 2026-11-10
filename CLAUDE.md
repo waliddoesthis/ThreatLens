@@ -3,7 +3,7 @@
 Context for Claude (Claude Code, Cowork, or a Claude Project) working on this repo.
 
 ## What this is
-ThreatLens is an **agentic RAG copilot for SOC / CTI analysts**. Input: a question, an alert, a log line or a CVE ID.
+ThreatLens is a **RAG copilot for SOC / CTI analysts** (a tool-using agent loop is planned for M2.5; do not call it "agentic" before that ships). Input: a question, an alert, a log line or a CVE ID.
 Output: a cited answer, the related MITRE ATT&CK techniques, exploitation status (CISA KEV) and suggested Sigma detection rules.
 
 It is a **portfolio project** (author: Walid Ichchou). Every feature must be demoable and **measured**.
