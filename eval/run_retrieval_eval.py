@@ -24,7 +24,7 @@ from metrics import (  # noqa: E402
 )
 
 from threatlens.config import settings  # noqa: E402
-from threatlens.index.build import corpus_refs  # noqa: E402
+from threatlens.index import corpus_refs  # noqa: E402
 from threatlens.retrieval.hybrid import get_retriever  # noqa: E402
 
 HERE = Path(__file__).parent
