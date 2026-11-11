@@ -58,7 +58,7 @@ Tick boxes as you go. Each milestone ends with something measurable for the READ
 - [x] Streamed answers (`POST /ask/stream`, live UI) — first token 18.9 s vs full answer 27.8 s on the 8 GB GPU (−9.0 s, CI −10.2 to −7.9); 13.1 s of the wait is retrieval + reranking on a CPU build of PyTorch
 - [ ] Reranker on the GPU (or a lighter one): the measured bottleneck before the first token
 - [x] Demo image for a Hugging Face Space (`deploy/space/`, [guide](DEPLOY.md)): corpus and index built into the image from the pinned sources (6,094 chunks, about 9 minutes on 4 CPUs), hosted model by configuration, questions capped per visit and per day
-- [ ] Demo GIF recorded by `scripts/record_demo.py` on the local GPU ([DEMO.md](DEMO.md)) at the top of the README (chosen over hosting: a Docker Space needs a paid plan)
+- [x] Demo GIF recorded by `scripts/record_demo.py` on the local GPU ([DEMO.md](DEMO.md)) at the top of the README (chosen over hosting: a Docker Space needs a paid plan): a CVE, agent mode and a French question, 42 s
 - [ ] Public URL (open: Azure for Students or Streamlit Community Cloud are the free candidates)
 - [ ] Monitoring dashboard (Streamlit page or Power BI)
 - [ ] README final: diagram, results, demo video, "how to run"

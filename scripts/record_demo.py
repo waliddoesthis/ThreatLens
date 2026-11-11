@@ -105,7 +105,7 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--url", default="http://localhost:8501")
     p.add_argument("--out", default="docs/img/demo.gif")
-    p.add_argument("--shots", type=int, nargs="*", default=[1, 2, 3], choices=list(SHOTS))
+    p.add_argument("--shots", type=int, nargs="*", default=[3, 4, 5], choices=list(SHOTS))
     p.add_argument("--width", type=int, default=960, help="GIF width in pixels")
     p.add_argument("--timeout", type=float, default=240, help="seconds to wait for one answer")
     args = p.parse_args()

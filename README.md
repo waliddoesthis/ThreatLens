@@ -4,6 +4,10 @@
 
 > Status: 🚧 work in progress — see [docs/ROADMAP.md](docs/ROADMAP.md)
 
+![ThreatLens answering a CVE question, an agent-mode question and a French question, with cited sources](docs/img/demo.gif)
+
+*Recorded by a [script](docs/DEMO.md) on the local app: llama3.1:8b on an 8 GB RTX 2070, nothing edited. The wait before the first words is played 8× faster and labelled; the writing is real speed.*
+
 ## Highlights
 Built and measured:
 - **Hybrid retrieval**: BM25 + dense embeddings fused with RRF, cross-encoder reranking
@@ -18,7 +22,7 @@ Built and measured:
 Planned ([roadmap](docs/ROADMAP.md)), not claimed yet:
 - **Cost-aware LLM routing** (M3): a rule-based router exists; the learned router and the quality-vs-cost numbers do not
 - **Prompt-injection defences** (M4): a heuristic guard and a delimited prompt exist; the attack/defence benchmark does not
-- **Live demo** (M5): there is no public URL. A demo image with usage caps and a [deployment guide](docs/DEPLOY.md) are in the repository, but the host it targets turned out to need a paid plan; the demo is a [recording of the local app](docs/DEMO.md)
+- **Live demo** (M5): there is no public URL. A demo image with usage caps and a [deployment guide](docs/DEPLOY.md) are in the repository, but the host it targets turned out to need a paid plan; the demo is the [recording above](docs/DEMO.md)
 - **Monitoring** (M5)
 
 ## Architecture
