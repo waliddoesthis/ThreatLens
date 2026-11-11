@@ -28,9 +28,11 @@ src/threatlens/
   agent.py           agent mode: seeded retrieval, then a bounded tool-calling loop
   llm/               LiteLLM client, prompts, cost-aware router
   guard.py           prompt-injection detection / sanitisation
+  limits.py          usage caps for the public demo (per visit, per day)
   pipeline.py        answer(question) -> Answer   (the main entry point); answer_events() streams it
   api.py             FastAPI app
 app/streamlit_app.py UI
+deploy/space/        Hugging Face Space image for the public demo (docs/DEPLOY.md)
 eval/                benchmark questions + evaluation scripts
 tests/               pytest
 ```
