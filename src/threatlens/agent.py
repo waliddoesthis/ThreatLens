@@ -25,11 +25,12 @@ What keeps it honest:
 import json
 import re
 import time
+from collections.abc import Iterator
 
 from threatlens import guard
 from threatlens.config import settings
 from threatlens.llm import router
-from threatlens.llm.client import complete
+from threatlens.llm.client import complete, stream_events
 from threatlens.llm.prompts import build_context, build_messages
 from threatlens.schema import Answer, RetrievedChunk
 from threatlens.tools import SPECS, TOOLS
@@ -71,6 +72,14 @@ def _run_tool(name: str, raw_args: str) -> tuple[str, list[RetrievedChunk], dict
 
 
 def answer(question: str, force_model: str | None = None) -> Answer:
+    *_, done = answer_events(question, force_model=force_model, stream=False)
+    return done["answer"]
+
+
+def answer_events(
+    question: str, force_model: str | None = None, stream: bool = True
+) -> Iterator[dict]:
+    """Events as in `pipeline.answer_events`; each tool call is a "step" event when it returns."""
     t0 = time.perf_counter()
     flags = guard.check_query(question)
     model, reason = (force_model, "forced") if force_model else router.route(question, [])
@@ -93,9 +102,11 @@ def answer(question: str, force_model: str | None = None) -> Answer:
     from threatlens.pipeline import retrieve
 
     record("search", {"query": question}, retrieve(question), seeded=True)
+    yield {"type": "step", **steps[-1]}
     for cve in dict.fromkeys(m.upper() for m in _CVE.findall(question)):
         out, chunks, args = _run_tool("kev_status", json.dumps({"cve": cve}))
         record("kev_status", args, chunks, seeded=True)
+        yield {"type": "step", **steps[-1]}
         seen_calls.add(("kev_status", json.dumps({"cve": cve})))
         if not chunks:  # not in KEV: say so in the context instead of leaving a silent gap
             kev_notes.append(out.splitlines()[-1].replace("this corpus", f"this corpus ({cve})"))
@@ -135,6 +146,7 @@ def answer(question: str, force_model: str | None = None) -> Answer:
                 out, chunks, args = _run_tool(call["name"], call["arguments"])
                 out = guard.sanitize_text(out)
             record(call["name"], args, chunks)
+            yield {"type": "step", **steps[-1]}
             messages.append({"role": "tool", "tool_call_id": call["id"], "content": out})
 
     # write: the pipeline's prompt over everything gathered, seeded sources first, no tools
@@ -143,18 +155,33 @@ def answer(question: str, force_model: str | None = None) -> Answer:
     if notes:  # the "not in KEV" lines sit between the sources and the question, as in gather
         head, sep, tail = final[-1]["content"].rpartition("\n\nQUESTION:")
         final[-1]["content"] = f"{head}{notes}{sep}{tail}"
-    res = complete(model, final)
+    yield {
+        "type": "sources",
+        "citations": sources,
+        "model": model,
+        "route_reason": f"agent · {reason}",
+        "guard_flags": list(flags),
+    }
+    waited = int((time.perf_counter() - t0) * 1000)  # seeded retrieval and the gather turns
+    if stream:
+        res = yield from stream_events(model, final)
+    else:
+        res = complete(model, final)
     cost += res.cost_usd
     text = res.text
 
     flags += guard.check_citations(text, {c.chunk.doc_id for c in sources})
-    return Answer(
-        answer=text,
-        citations=sources,
-        model=model,
-        route_reason=f"agent · {reason}",
-        cost_usd=cost,
-        latency_ms=int((time.perf_counter() - t0) * 1000),
-        guard_flags=flags,
-        steps=steps,
-    )
+    yield {
+        "type": "done",
+        "answer": Answer(
+            answer=text,
+            citations=sources,
+            model=model,
+            route_reason=f"agent · {reason}",
+            cost_usd=cost,
+            latency_ms=int((time.perf_counter() - t0) * 1000),
+            guard_flags=flags,
+            steps=steps,
+            first_token_ms=waited + res.first_token_ms if stream else 0,
+        ),
+    }

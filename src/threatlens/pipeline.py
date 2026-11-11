@@ -2,11 +2,12 @@
 
 import re
 import time
+from collections.abc import Iterator
 
 from threatlens import guard
 from threatlens.config import settings
 from threatlens.llm import router
-from threatlens.llm.client import complete
+from threatlens.llm.client import complete, stream_events
 from threatlens.llm.prompts import build_messages
 from threatlens.retrieval.hybrid import get_retriever
 from threatlens.retrieval.translate import english_variant
@@ -80,12 +81,21 @@ def retrieve(
     return named + keep[: max(top_k - len(named) - len(linked), 0)] + linked
 
 
-def answer(question: str, force_model: str | None = None, mode: str | None = None) -> Answer:
-    """mode: "pipeline" (fixed chain below) or "agent" (the model picks tools); default settings."""
+def answer_events(
+    question: str, force_model: str | None = None, mode: str | None = None, stream: bool = True
+) -> Iterator[dict]:
+    """The work of `answer`, as events, so a caller can show progress while it happens.
+
+    {"type": "sources", "citations", "model", "route_reason", "guard_flags"}  retrieval is done
+    {"type": "step", ...}                 agent mode: one tool call (same dict as Answer.steps)
+    {"type": "token", "text"}             a piece of the answer (only when stream=True)
+    {"type": "done", "answer": Answer}    always last; flags now include the citation check
+    """
     if (mode or settings.answer_mode) == "agent":
         from threatlens import agent
 
-        return agent.answer(question, force_model=force_model)
+        yield from agent.answer_events(question, force_model=force_model, stream=stream)
+        return
     t0 = time.perf_counter()
     flags = guard.check_query(question)
 
@@ -94,15 +104,37 @@ def answer(question: str, force_model: str | None = None, mode: str | None = Non
     flags += doc_flags
 
     model, reason = (force_model, "forced") if force_model else router.route(question, chunks)
-    res = complete(model, build_messages(question, chunks))
+    yield {
+        "type": "sources",
+        "citations": chunks,
+        "model": model,
+        "route_reason": reason,
+        "guard_flags": list(flags),
+    }
+    messages = build_messages(question, chunks)
+    waited = int((time.perf_counter() - t0) * 1000)  # retrieval, rerank, routing
+    if stream:
+        res = yield from stream_events(model, messages)
+    else:
+        res = complete(model, messages)
 
     flags += guard.check_citations(res.text, {c.chunk.doc_id for c in chunks})
-    return Answer(
-        answer=res.text,
-        citations=chunks,
-        model=res.model,
-        route_reason=reason,
-        cost_usd=res.cost_usd,
-        latency_ms=int((time.perf_counter() - t0) * 1000),
-        guard_flags=flags,
-    )
+    yield {
+        "type": "done",
+        "answer": Answer(
+            answer=res.text,
+            citations=chunks,
+            model=res.model,
+            route_reason=reason,
+            cost_usd=res.cost_usd,
+            latency_ms=int((time.perf_counter() - t0) * 1000),
+            guard_flags=flags,
+            first_token_ms=waited + res.first_token_ms if stream else 0,
+        ),
+    }
+
+
+def answer(question: str, force_model: str | None = None, mode: str | None = None) -> Answer:
+    """mode: "pipeline" (fixed chain) or "agent" (the model picks tools); default from settings."""
+    *_, done = answer_events(question, force_model=force_model, mode=mode, stream=False)
+    return done["answer"]

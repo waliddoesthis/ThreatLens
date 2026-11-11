@@ -28,7 +28,7 @@ src/threatlens/
   agent.py           agent mode: seeded retrieval, then a bounded tool-calling loop
   llm/               LiteLLM client, prompts, cost-aware router
   guard.py           prompt-injection detection / sanitisation
-  pipeline.py        answer(question) -> Answer   (the main entry point)
+  pipeline.py        answer(question) -> Answer   (the main entry point); answer_events() streams it
   api.py             FastAPI app
 app/streamlit_app.py UI
 eval/                benchmark questions + evaluation scripts
@@ -47,6 +47,7 @@ make eval-alerts  # 107 Atomic Red Team command lines -> eval/results/retrieval-
 make eval-ablation  # chunk-size + embedding-model ablations
 make eval-answers   # faithfulness + citation accuracy (needs an LLM)
 make eval-answers-agent  # same, in agent mode
+make eval-stream    # time to first token of streamed answers (needs an LLM)
 make plots        # README charts -> docs/img/
 make test         # pytest
 ```
