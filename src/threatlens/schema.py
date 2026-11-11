@@ -47,6 +47,8 @@ class Answer:
     guard_flags: list[str] = field(default_factory=list)
     # agent mode only: the tool calls made, in order ({"tool", "args", "returned", "seeded"})
     steps: list[dict] = field(default_factory=list)
+    # streamed answers only: time until the first token of the answer reached the caller
+    first_token_ms: int = 0
 
     def to_dict(self) -> dict:
         return asdict(self)
