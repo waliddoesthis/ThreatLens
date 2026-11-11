@@ -37,6 +37,19 @@ with st.sidebar:
 question = st.text_area("Question, alert or log line", key="q", height=120)
 
 
+def _is_public_demo() -> bool:
+    from threatlens.config import settings
+
+    return settings.demo_daily_limit > 0 or settings.demo_session_limit > 0
+
+
+if _is_public_demo():
+    st.caption(
+        "Public demo with a hosted model: do not paste confidential logs or data. "
+        "Questions per visit and per day are capped."
+    )
+
+
 def events(q: str, force: str | None, mode: str):
     """Answer events as plain dicts: from the API's event stream, or from the pipeline in-process."""
     if API_URL:
@@ -54,8 +67,24 @@ def events(q: str, force: str | None, mode: str):
         yield _wire(ev)
 
 
+@st.cache_resource
+def daily_budget():
+    from threatlens.config import settings
+    from threatlens.limits import DailyBudget
+
+    return DailyBudget(settings.demo_daily_limit)  # one counter for every visitor of this process
+
+
 if st.button("Ask", type="primary") and question.strip():
     from threatlens.config import settings
+    from threatlens.limits import refusal
+
+    asked = st.session_state.get("asked", 0)
+    if blocked := refusal(daily_budget(), asked, settings.demo_session_limit):
+        st.warning(blocked)
+        st.stop()
+    st.session_state["asked"] = asked + 1
+    question = question[:4000]  # same bound as the API
 
     force = {"small": settings.small_model, "large": settings.large_model}.get(model_choice)
     status = st.status("Retrieving sources…", expanded=False)
