@@ -2,7 +2,7 @@
 
     pip install playwright pillow && playwright install chromium
     streamlit run app/streamlit_app.py            # in another terminal, models warmed up
-    python scripts/record_demo.py [--shots 1 2 3] [--out docs/img/demo.gif]
+    python scripts/record_demo.py [--shots 3 4 5] [--out docs/img/demo.gif]
 
 Nobody types or edits anything by hand: each shot is a question from `SHOTS`, screenshots are
 taken while the app retrieves, streams and finishes, and the frames become one GIF.
