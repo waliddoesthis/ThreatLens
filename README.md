@@ -9,6 +9,7 @@ Built and measured:
 - **Hybrid retrieval**: BM25 + dense embeddings fused with RRF, cross-encoder reranking
 - **A small knowledge graph from the sources' own links**: Sigma rule → ATT&CK technique → mitigation. A pasted command line is matched to detection rules, and the rules' tags lead to the technique (Recall@5 on 107 real command lines: 0.15 → 0.33)
 - **Agent mode**: retrieval always runs first, then the model chooses tools (exact id lookup, KEV status, linked rules and mitigations, NVD, another search); every call is shown in the UI
+- **Streamed answers**: sources first, then the answer token by token over server-sent events; the first words arrive 9 s before the full answer on an 8 GB GPU ([numbers](#streaming))
 - **Cited answers**: every claim points to its source (`[attack:T1059.001]`, `[kev:CVE-2024-3400]`); citations of documents the model was never given are flagged
 - **French questions** are searched in both languages (Recall@5 0 → 5 of 5)
 - **Measured, with error bars**: two retrieval benchmarks (117 questions, 107 real alerts), ablations, bootstrap confidence intervals, pinned data versions ([results](#results))
@@ -103,6 +104,19 @@ Measured on the full answer benchmark (117 questions, `llama3.1:8b`, judge `qwen
 - **What it does with its freedom:** 1.1 tool calls per question, `related` 95 times, `search` 33, `lookup` 4, `kev_status` 2, `nvd` never. It mostly fetches a technique's Sigma rules and mitigations, yet the gold Sigma rule is cited on only 0.30 of detection questions (0.40 for the pipeline): the rules reach the context and the model still cites the technique instead.
 - Without the forced first retrieval, a 4-question trial had the model look up `T1505` for Kerberoasting (it is T1558.003) and cite a Sigma rule id that does not exist. That is why retrieval is not the model's choice.
 - Next test of the idea is a larger model in M3: the loop and the benchmark are ready, the 8B planner is the limit.
+
+### Streaming
+`POST /ask/stream` sends the answer as server-sent events: the sources as soon as retrieval is done, each tool call in agent mode, then the text as the model writes it, then the full answer with its citation check. The UI renders it live. Measured from the caller's side on 30 questions (every 4th of the benchmark), `llama3.1:8b` on an 8 GB RTX 2070, after a warm-up answer ([results](eval/results/streaming-llama3.1-8b.md)):
+
+| Wait until | mean (95% CI) | median | p90 |
+|---|---|---|---|
+| sources shown | 13.1 s (12.0 to 14.3) | 12.3 s | 18.1 s |
+| first token | 18.9 s (17.7 to 20.1) | 18.3 s | 24.2 s |
+| full answer | 27.8 s (26.0 to 30.0) | 26.9 s | 38.9 s |
+
+- **Streaming takes 9.0 s off the wait for the first words** (paired, 95% CI 7.9 to 10.2), about a third of the total.
+- **It also showed where the time really goes: two thirds of it pass before the model writes anything.** Retrieval and reranking take 13 s because that machine's PyTorch is a CPU build, so the cross-encoder scores its 30 candidates on the CPU while the GPU waits. Then the model spends 5.8 s reading the six sources. The next latency win is the reranker, not the generator.
+- The citation check needs the whole answer, so its flags arrive with the last event: a streamed answer can be flagged, not withheld ([decision](docs/DECISIONS.md)).
 
 ### Chunk size and embedding model
 ![Ablation](docs/img/ablation.png)

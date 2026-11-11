@@ -48,10 +48,17 @@ SOC and CTI analysts lose time jumping between MITRE ATT&CK, NVD, CISA KEV, CERT
 pipeline.answer(question: str, *, force_model: str | None = None,
                 mode: "pipeline" | "agent" | None = None) -> Answer
 Answer = {answer: str, citations: list[RetrievedChunk], model: str,
-          route_reason: str, cost_usd: float, latency_ms: int, guard_flags: list[str],
+          route_reason: str, cost_usd: float, latency_ms: int, first_token_ms: int,
+          guard_flags: list[str],
           steps: list[{tool, args, returned, seeded}]}   # steps: agent mode only
 ```
 `POST /ask {"question": "...", "mode": "agent"}` → `Answer` JSON. `GET /health`.
+
+Streaming: `pipeline.answer_events(...)` yields the same work as events, and `POST /ask/stream`
+sends them as server-sent events (`data: {json}`), in this order:
+`sources` (citations, model, route) → `step`* (agent mode, one per tool call) → `token`* → `done`
+(the full `Answer`, with the citation-check flags and `first_token_ms`). A failure after the
+response started arrives as an `error` event. `answer()` is the same generator with `stream=False`.
 
 ## 6. The four differentiators (each must produce a result in the README)
 1. **Retrieval evaluation** — `eval/questions.jsonl` (target: 100+ questions with gold doc ids).
