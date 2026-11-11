@@ -1,5 +1,6 @@
 """ThreatLens UI. Uses the API if THREATLENS_API_URL is set, otherwise runs the pipeline in-process."""
 
+import json
 import os
 import re
 
@@ -36,23 +37,48 @@ with st.sidebar:
 question = st.text_area("Question, alert or log line", key="q", height=120)
 
 
-def run(q: str, force: str | None, mode: str) -> dict:
+def events(q: str, force: str | None, mode: str):
+    """Answer events as plain dicts: from the API's event stream, or from the pipeline in-process."""
     if API_URL:
         body = {"question": q, "force_model": force, "mode": mode}
-        r = httpx.post(f"{API_URL}/ask", json=body, timeout=300)
-        r.raise_for_status()
-        return r.json()
-    from threatlens.pipeline import answer
+        with httpx.stream("POST", f"{API_URL}/ask/stream", json=body, timeout=300) as r:
+            r.raise_for_status()
+            for line in r.iter_lines():
+                if line.startswith("data: "):
+                    yield json.loads(line[6:])
+        return
+    from threatlens.api import _wire
+    from threatlens.pipeline import answer_events
 
-    return answer(q, force_model=force, mode=mode).to_dict()
+    for ev in answer_events(q, force_model=force, mode=mode):
+        yield _wire(ev)
 
 
 if st.button("Ask", type="primary") and question.strip():
     from threatlens.config import settings
 
     force = {"small": settings.small_model, "large": settings.large_model}.get(model_choice)
-    with st.spinner("Retrieving and reasoning…"):
-        res = run(question, force, "agent" if agent_mode else "pipeline")
+    status = st.status("Retrieving sources…", expanded=False)
+    live = st.empty()  # the answer as it is written; replaced by the linked version at the end
+    text, res = "", None
+    for ev in events(question, force, "agent" if agent_mode else "pipeline"):
+        if ev["type"] == "step":
+            args = ", ".join(f"{k}={v!r}" for k, v in ev["args"].items())
+            status.write(f"`{ev['tool']}({args})` → {len(ev['returned'])} documents")
+        elif ev["type"] == "sources":
+            n = len(ev["citations"])
+            status.update(label=f"{n} sources · writing with {ev['model'].split('/')[-1]}…")
+        elif ev["type"] == "token":
+            text += ev["text"]
+            live.markdown(text + " ▌")
+        elif ev["type"] == "error":
+            status.update(label="Failed", state="error")
+            st.error(ev["message"])
+            st.stop()
+        elif ev["type"] == "done":
+            res = ev["answer"]
+    live.empty()
+    status.update(label="Done", state="complete")
 
     urls = {c["chunk"]["doc_id"]: c["chunk"]["url"] for c in res["citations"]}
 
@@ -72,7 +98,8 @@ if st.button("Ask", type="primary") and question.strip():
     with col2:
         st.metric("Model", res["model"].split("/")[-1])
         st.caption(f"Route: {res['route_reason']}")
-        st.metric("Latency", f"{res['latency_ms']} ms")
+        st.metric("First token", f"{res['first_token_ms'] / 1000:.1f} s")
+        st.metric("Full answer", f"{res['latency_ms'] / 1000:.1f} s")
         st.metric("Cost", f"${res['cost_usd']:.5f}")
         if res["guard_flags"]:
             st.warning("Guard flags: " + ", ".join(res["guard_flags"]))
