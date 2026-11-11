@@ -36,8 +36,8 @@ Tick boxes as you go. Each milestone ends with something measurable for the READ
 - [x] French query translation — French Recall@5 0.0 → 1.0 (5 questions); full path 0.943 vs 0.887 for plain hybrid (Δ +0.056, 95% CI +0.013 to +0.107)
 - [x] Router low-confidence rule fixed (it could never fire); threshold 0.3 from data
 - [x] Agent mode: seeded retrieval + 5 tools, bounded loop, citation check, UI trace — unit-tested; 4-question trial with llama3.1:8b on CPU only
-- [ ] Agent vs pipeline on the full answer benchmark (`make eval-answers-agent`, needs a GPU)
-- [ ] Re-run the M2 answer eval through `ollama_chat/` on the pinned corpus (the M2 numbers used a route that flattens the system prompt)
+- [x] Agent vs pipeline on the full answer benchmark — faithfulness 0.910 vs 0.885 (Δ +0.026, CI −0.012 to +0.062: not shown), gold cited 0.726 vs 0.779 (not shown), latency 55.0 s vs 40.7 s (+14.3 s, CI +12.0 to +16.2). First agent left 81 of 117 answers uncited; gather-then-write brought that to 24. Pipeline stays the default
+- [x] Re-run the M2 answer eval through `ollama_chat/` on the pinned corpus — 117 questions: faithfulness 0.885, gold cited 0.779 (M2: 0.875 / 0.765 on 112); French faithfulness 0.47 → 0.95
 **Deliverable:** alert benchmark chart + "follow the links" result in README.
 
 ## M3 — Cost-aware router (week 2)

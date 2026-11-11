@@ -86,12 +86,23 @@ The 5 alert questions above were written by hand and score 0.70. [eval/questions
 - A first design that re-ranked every question with the graph raised alerts but cut MRR on the 117 questions from 0.74 to 0.47. It was dropped ([decision](docs/DECISIONS.md)).
 
 ### Agent mode
-`pipeline.answer(question, mode="agent")`, or the toggle in the UI. Retrieval and a KEV check on every CVE in the question run first; then the model may call `lookup`, `kev_status`, `related`, `nvd` or `search` (at most 4 turns) before it writes the answer. No framework: [agent.py](src/threatlens/agent.py) is a 150-line loop over tool calling.
+`pipeline.answer(question, mode="agent")`, or the toggle in the UI. Retrieval and a KEV check on every CVE in the question run first; then the model may call `lookup`, `kev_status`, `related`, `nvd` or `search` (at most 4 turns) before it writes the answer. No framework: [agent.py](src/threatlens/agent.py) is a 160-line loop over tool calling.
 
-**Not benchmarked yet.** It has unit tests with a scripted model and a 4-question trial with `llama3.1:8b` on CPU, which is a smoke test, not a result:
-- Without the forced first retrieval, the 8B model made one tool call and then answered from memory: it looked up `T1505` for Kerberoasting (the technique is T1558.003) and cited a Sigma rule id that does not exist. That is why retrieval is no longer the model's choice.
-- With it, the same question led to `related("T1558.003")` and an answer listing that technique's real Sigma rules and mitigations (M1026, M1027, M1041), and no invented citation was flagged in the 4 answers.
-- It still mislabels technique names from memory and sometimes drops the `[source:id]` format. `make eval-answers-agent` scores it on the full benchmark; that run needs a GPU.
+Measured on the full answer benchmark (117 questions, `llama3.1:8b`, judge `qwen2.5:7b`, 8 GB RTX 2070, same pinned corpus as the pipeline run below; [results](eval/results/answers-llama3.1-8b-agent.md)):
+
+| | Pipeline | Agent | Paired difference (95% CI) |
+|---|---|---|---|
+| Faithfulness (judge) | 0.885 | 0.910 | +0.026 (−0.012 to +0.062) |
+| Relevancy (1–5) | 4.64 | 4.69 | +0.05 (−0.07 to +0.17) |
+| Gold doc cited | 0.779 | 0.726 | −0.053 (−0.133 to +0.035) |
+| Statements with a citation | 0.419 | 0.427 | +0.008 (−0.053 to +0.067) |
+| Latency per answer | 40.7 s | 55.0 s | **+14.3 s (+12.0 to +16.2)** |
+
+- **With an 8B model, agent mode is not shown to answer better, and it is 35% slower.** Every quality interval contains 0; the latency one does not. The pipeline stays the default.
+- **The first agent stopped citing.** When one turn could either call a tool or answer, 81 of 117 answers carried no citation at all (18 for the pipeline) and the gold document was cited in 0.239 of them, while the judge still rated them as faithful (0.879). The agent now gathers with tools and the pipeline's own prompt writes the answer from at most 8 sources; uncited answers fell to 24 ([decision](docs/DECISIONS.md), [first run](eval/results/answers-llama3.1-8b-agent-oneturn.md)).
+- **What it does with its freedom:** 1.1 tool calls per question, `related` 95 times, `search` 33, `lookup` 4, `kev_status` 2, `nvd` never. It mostly fetches a technique's Sigma rules and mitigations, yet the gold Sigma rule is cited on only 0.30 of detection questions (0.40 for the pipeline): the rules reach the context and the model still cites the technique instead.
+- Without the forced first retrieval, a 4-question trial had the model look up `T1505` for Kerberoasting (it is T1558.003) and cite a Sigma rule id that does not exist. That is why retrieval is not the model's choice.
+- Next test of the idea is a larger model in M3: the loop and the benchmark are ready, the 8B planner is the limit.
 
 ### Chunk size and embedding model
 ![Ablation](docs/img/ablation.png)
@@ -102,16 +113,18 @@ The 5 alert questions above were written by hand and score 0.70. [eval/questions
 ### Answer quality
 Every answer is scored by an LLM judge (faithfulness = supported claims / claims, relevancy 1–5) **and** by deterministic checks: does it cite only ids it was given, does it cite the gold document, how many statements carry a citation, and does it state CVE / ATT&CK ids that appear in no source ([eval/run_answer_eval.py](eval/run_answer_eval.py)).
 
-These numbers predate M2.5: they were measured before the corpus was pinned and through LiteLLM's `ollama/` route, which flattens the system prompt into plain text ([decision](docs/DECISIONS.md)); they are kept as measured and are due a re-run. Full run on 112 questions (the 5 CERT-FR questions were skipped because their advisories had rolled off that machine's feed). Generator `llama3.1:8b`, judge `qwen2.5:7b`, both on an 8 GB RTX 2070 via Ollama, at about 41 s per answer ([results](eval/results/answers-llama3.1-8b.md)):
+Full run on 117 questions, pinned corpus, generator `llama3.1:8b` through `ollama_chat/`, judge `qwen2.5:7b`, both on an 8 GB RTX 2070 via Ollama, at about 41 s per answer ([results](eval/results/answers-llama3.1-8b.md)). The 3B row is an older CPU sample from M2, kept for the comparison it makes:
 
 | Generator | n | Faithfulness (judge) | Relevancy | Citation validity | Gold doc cited | Statements with a citation | Unsupported ids / answer |
 |---|---|---|---|---|---|---|---|
-| **llama3.1:8b** (GPU) | 112 | **0.875** | **4.61** | **0.974** | **0.765** | **0.444** | **0.14** |
-| llama3.2:3b (CPU sample) | 10 | 0.929 | 4.50 | 1.000 (2 answers) | 0.200 | 0.068 | 1.20 |
+| **llama3.1:8b** (GPU) | 117 | **0.885** | **4.64** | **0.980** | **0.779** | **0.419** | **0.28** |
+| llama3.2:3b (CPU sample, M2) | 10 | 0.929 | 4.50 | 1.000 (2 answers) | 0.200 | 0.068 | 1.20 |
 
-- **The judge alone would have picked the wrong model.** It rated the 3B model *more* faithful (0.93 vs 0.88) while the 3B model cited the gold document 4× less often and stated 8× more ATT&CK / CVE ids that appear in no source. That is why the deterministic citation checks sit next to the judge.
-- **llama3.1:8b grounds technique questions well** (faithfulness 0.95, gold cited 0.94) **but not detections** (gold Sigma rule cited 0.40). It cites the ATT&CK technique and skips the rule, which is the gap the M4 prompt work targets.
-- **French is the weak spot end to end**: retrieval finds nothing, so faithfulness falls to 0.47 and relevancy to 2.8, even though the model honestly says the sources don't cover the question.
+- **The judge alone would have picked the wrong model.** It rated the 3B model *more* faithful (0.93 vs 0.89) while the 3B model cited the gold document 4× less often and stated 4× more ATT&CK / CVE ids that appear in no source. That is why the deterministic citation checks sit next to the judge.
+- **llama3.1:8b grounds technique questions well** (faithfulness 0.92, gold cited 0.96) **but not detections** (gold Sigma rule cited 0.40). It cites the ATT&CK technique and skips the rule, which is the gap the M4 prompt work targets.
+- **French went from the weak spot to par**: in M2 retrieval found nothing and faithfulness was 0.47, relevancy 2.8. With query translation the 5 French questions score 0.95 and 4.8 (5 questions, so read it as "fixed", not as a ranking).
+- **CERT-FR is now the weak spot**: on its 5 questions the gold advisory is cited in 0.40 of answers and 1.8 ids per answer appear in no source.
+- M2 measured 0.875 faithfulness and 0.765 gold cited on 112 questions, before the corpus was pinned and through a route that flattened the system prompt. The re-run moved neither number by more than 0.015.
 - These per-question rows ([jsonl](eval/results/answers-llama3.1-8b.jsonl)) are the training labels for the M3 router.
 
 ## Data
