@@ -9,6 +9,7 @@ from functools import lru_cache
 import numpy as np
 
 from threatlens.config import settings
+from threatlens.graph import Graph
 from threatlens.index import embedding_prefixes, tokenize
 from threatlens.schema import Chunk, RetrievedChunk
 
@@ -31,6 +32,12 @@ class HybridRetriever:
             self.bm25 = pickle.load(f)
         self._encoder = None
         self._store = None
+        self.graph = Graph(self.chunks)
+
+    def doc(self, doc_id: str) -> Chunk | None:
+        """First chunk of a document by exact id, or None."""
+        i = self.graph.first_chunk.get(doc_id)
+        return self.chunks[i] if i is not None else None
 
     def _load_dense(self) -> None:
         # loaded on first dense query, so BM25-only runs need no model download
@@ -61,8 +68,10 @@ class HybridRetriever:
         return ids
 
     def search(
-        self, query: str, k: int | None = None, mode: str = "hybrid"
+        self, query: str, k: int | None = None, mode: str = "hybrid", also: str | None = None
     ) -> list[RetrievedChunk]:
+        """`also` is a second wording of the query (its translation); in hybrid mode both
+        wordings are searched and all four rankings are fused."""
         k = k or settings.top_k_retrieve
         if mode == "bm25":
             ids = self.bm25_search(query, k)
@@ -74,7 +83,9 @@ class HybridRetriever:
             return [
                 RetrievedChunk(self.chunks[i], 1.0 / (r + 1), "dense") for r, i in enumerate(ids)
             ]
-        fused = rrf([self.bm25_search(query, k), self.dense_search(query, k)])[:k]
+        rankings = [self.bm25_search(q, k) for q in (query, also) if q]
+        rankings += [self.dense_search(q, k) for q in (query, also) if q]
+        fused = rrf(rankings)[:k]
         return [RetrievedChunk(self.chunks[i], s, "hybrid") for i, s in fused]
 
 

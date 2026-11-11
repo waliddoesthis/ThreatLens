@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "threatlens"
 version = "0.1.0"
-description = "RAG copilot for SOC & CTI analysts with cited answers"
+description = "Agentic RAG copilot for SOC & CTI analysts with cited answers"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Walid Ichchou" }]
@@ -21,6 +21,7 @@ dependencies = [
   "chromadb>=1.0",
   "numpy>=1.26",
   "litellm>=1.40",
+  "mcp>=1.0",  # recent litellm imports it as soon as a call passes tools (agent mode)
   "fastapi>=0.110",
   "uvicorn[standard]>=0.29",
   "streamlit>=1.35",

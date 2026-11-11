@@ -1,12 +1,17 @@
 """MITRE ATT&CK Enterprise (STIX 2.1) -> techniques + mitigations."""
 
 import json
+from urllib.parse import quote
 
 from threatlens.config import settings
-from threatlens.ingest import clean_stix_text, download, processed_path
+from threatlens.ingest import clean_stix_text, download, pins, processed_path
 from threatlens.schema import Document, write_jsonl
 
-URL = "https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json"
+_URL = "https://raw.githubusercontent.com/mitre/cti/{ref}/enterprise-attack/enterprise-attack.json"
+
+
+def source_url() -> str:
+    return _URL.format(ref=quote(pins.ATTACK_TAG) if pins.pinned() else "master")
 
 
 def _attack_ref(obj: dict) -> tuple[str, str]:
@@ -16,8 +21,34 @@ def _attack_ref(obj: dict) -> tuple[str, str]:
     return "", ""
 
 
+def mitigations_by_technique(bundle: dict) -> dict[str, list[str]]:
+    """Technique id -> mitigation ids, from STIX `mitigates` relationships.
+
+    The relationship objects are the edges of ATT&CK's own graph; keeping them lets the pipeline
+    answer "how do I mitigate T1003.001" by following a link instead of hoping retrieval finds it.
+    """
+    ext: dict[str, str] = {}
+    for obj in bundle.get("objects", []):
+        if obj.get("type") in ("attack-pattern", "course-of-action") and not (
+            obj.get("revoked") or obj.get("x_mitre_deprecated")
+        ):
+            ext[obj.get("id", "")] = _attack_ref(obj)[0]
+    out: dict[str, list[str]] = {}
+    for obj in bundle.get("objects", []):
+        if obj.get("type") != "relationship" or obj.get("relationship_type") != "mitigates":
+            continue
+        if obj.get("revoked") or obj.get("x_mitre_deprecated"):
+            continue
+        mit, tech = ext.get(obj.get("source_ref", "")), ext.get(obj.get("target_ref", ""))
+        # ATT&CK also files old "T1xxx" course-of-action objects; only real mitigations are M ids
+        if mit and tech and mit.startswith("M") and mit not in out.setdefault(tech, []):
+            out[tech].append(mit)
+    return {t: sorted(m) for t, m in out.items()}
+
+
 def parse(bundle: dict) -> list[Document]:
     docs: list[Document] = []
+    mitigations = mitigations_by_technique(bundle)
     for obj in bundle.get("objects", []):
         if obj.get("revoked") or obj.get("x_mitre_deprecated"):
             continue
@@ -44,6 +75,7 @@ def parse(bundle: dict) -> list[Document]:
                 "tactics": tactics,
                 "platforms": platforms,
                 "is_subtechnique": obj.get("x_mitre_is_subtechnique", False),
+                "mitigations": mitigations.get(ext_id, []),
             }
         else:
             text = f"ATT&CK mitigation {ext_id}: {name}\n\n{desc}"
@@ -62,6 +94,9 @@ def parse(bundle: dict) -> list[Document]:
 
 
 def ingest(force: bool = False) -> int:
-    raw = download(URL, settings.raw_dir / "enterprise-attack.json", force=force)
+    # one raw file per version, so switching the pin never reuses another version's download
+    raw = download(
+        source_url(), settings.raw_dir / f"enterprise-attack-{pins.ref('attack')}.json", force=force
+    )
     bundle = json.loads(raw.read_text(encoding="utf-8"))
     return write_jsonl(processed_path("attack"), parse(bundle))

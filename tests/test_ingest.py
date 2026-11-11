@@ -125,3 +125,69 @@ def test_clean_stix_text_drops_citations_and_links():
         "commands.(Citation: TechNet PowerShell) It is common. (Citation: A)(Citation: B)"
     )
     assert clean_stix_text(raw) == "Adversaries may abuse PowerShell commands. It is common."
+
+
+def test_pins_select_versioned_urls(monkeypatch):
+    from threatlens.config import settings
+    from threatlens.ingest import attack, pins
+
+    monkeypatch.setattr(settings, "data_pin", "pinned")
+    assert pins.ref("attack") == pins.ATTACK_TAG
+    assert "/ATT%26CK-v" in attack.source_url()  # the "&" in the tag must be URL-encoded
+    monkeypatch.setattr(settings, "data_pin", "latest")
+    assert pins.ref("sigma") == "latest" and "/master/" in attack.source_url()
+
+
+def test_certfr_pinned_advisory_parsers():
+    from threatlens.ingest.certfr import advisory_url, parse_advisory_html, parse_advisory_json
+
+    doc = parse_advisory_json(
+        "CERTFR-2026-ALE-013",
+        {
+            "title": "Vulnérabilité dans Ivanti",
+            "summary": "<b>Mise à jour</b> : exploitation active.",
+            "revisions": [{"revision_date": "2026-10-14T00:00:00"}],
+            "risks": [{"description": "Exécution de code arbitraire à distance"}],
+            "cves": [{"name": "CVE-2026-0001"}],
+        },
+    )
+    assert doc.id == "certfr:CERTFR-2026-ALE-013" and doc.url.endswith(
+        "/alerte/CERTFR-2026-ALE-013/"
+    )
+    assert "Mise à jour : exploitation active." in doc.text and "<b>" not in doc.text
+    assert "CVE-2026-0001" in doc.text and "Published: 2026-10-14" in doc.text
+
+    html = "<html><title>Rapport Apple - CERT-FR</title><main><script>x()</script><p>Pegasus</p></main></html>"
+    doc = parse_advisory_html("CERTFR-2025-CTI-010", html)
+    assert doc.title == "Rapport Apple" and doc.text.endswith("Pegasus")
+    assert advisory_url("CERTFR-2025-CTI-010").endswith("/cti/CERTFR-2025-CTI-010/")
+
+
+def test_certfr_ingest_keeps_archived_and_pinned(monkeypatch, tmp_path):
+    from threatlens.config import settings
+    from threatlens.ingest import certfr, pins
+    from threatlens.schema import Document, read_jsonl, write_jsonl
+
+    monkeypatch.setattr(settings, "data_dir", tmp_path)
+    old = Document("certfr:CERTFR-2025-AVI-0009", "certfr", "old", "rolled off the feed", "u")
+    write_jsonl(settings.processed_dir / "certfr.jsonl", [old])
+    monkeypatch.setattr(pins, "CERTFR_PINNED", ("CERTFR-2026-AVI-1340",))
+    monkeypatch.setattr(
+        certfr, "fetch_advisory", lambda ref: Document(f"certfr:{ref}", "certfr", "p", "p", "u")
+    )
+
+    class Resp:
+        content = RSS.encode()
+
+        def raise_for_status(self):
+            pass
+
+    monkeypatch.setattr(certfr.httpx, "get", lambda *a, **k: Resp())
+
+    assert certfr.ingest() == 3
+    ids = [d.id for d in read_jsonl(settings.processed_dir / "certfr.jsonl")]
+    assert ids == [
+        "certfr:CERTFR-2025-AVI-0009",
+        "certfr:CERTFR-2026-AVI-0001",
+        "certfr:CERTFR-2026-AVI-1340",
+    ]

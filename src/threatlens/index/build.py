@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 from threatlens.chunking import chunk_document
 from threatlens.config import settings
-from threatlens.index import embedding_prefixes, tokenize
+from threatlens.index import corpus_refs, embedding_prefixes, tokenize
 from threatlens.schema import Chunk, read_jsonl
 
 
@@ -72,6 +72,7 @@ def build(sparse_only: bool = False) -> None:
         "chunk_overlap_words": settings.chunk_overlap_words,
         "vector_store": settings.vector_store,
         "n_chunks": len(chunks),
+        "corpus": corpus_refs(),
     }
     (out / "meta.json").write_text(json.dumps(meta, indent=2))
     print("Dense index done")
