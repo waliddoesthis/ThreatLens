@@ -110,3 +110,103 @@ def test_router_low_confidence_uses_best_rerank_score(monkeypatch):
 
     # no reranker -> no confidence signal -> the rule stays out of the way
     assert router.route(q, [_scored("attack:T1", 0.016, "hybrid")])[0] == settings.small_model
+
+
+def test_attack_mitigates_relationships_become_metadata():
+    def obj(typ, sid, ext, **kw):
+        ref = {"source_name": "mitre-attack", "external_id": ext, "url": "u"}
+        return {"type": typ, "id": sid, "name": ext, "external_references": [ref], **kw}
+
+    def rel(src, dst, **kw):
+        return {"type": "relationship", "relationship_type": "mitigates", **kw} | {
+            "source_ref": src,
+            "target_ref": dst,
+        }
+
+    bundle = {
+        "objects": [
+            obj("attack-pattern", "ap--1", "T1003.001"),
+            obj("course-of-action", "coa--1", "M1043"),
+            obj("course-of-action", "coa--2", "M1025"),
+            obj("course-of-action", "coa--old", "T1003"),  # legacy, not a real mitigation
+            rel("coa--1", "ap--1"),
+            rel("coa--2", "ap--1"),
+            rel("coa--old", "ap--1"),
+            rel("coa--1", "ap--1", revoked=True),
+            {"type": "relationship", "relationship_type": "uses", "source_ref": "coa--1"},
+        ]
+    }
+    docs = {d.id: d for d in parse_attack(bundle)}
+    assert docs["attack:T1003.001"].metadata["mitigations"] == ["M1025", "M1043"]
+
+
+def test_graph_lookup_votes_and_related():
+    from threatlens.graph import Graph
+
+    def ch(doc_id, source, **meta):
+        return Chunk(f"{doc_id}#0", doc_id, source, "t", "x", metadata=meta)
+
+    chunks = [
+        ch("attack:T1003.001", "attack", kind="technique", mitigations=["M1043"]),
+        ch("attack:T1059.001", "attack", kind="technique"),
+        ch("attack:M1043", "attack", kind="mitigation"),
+        ch("kev:CVE-2024-3400", "kev"),
+        ch("sigma:11111111-2222-3333-4444-555555555555", "sigma", techniques=["T1003.001"]),
+        ch("sigma:aaaaaaaa-2222-3333-4444-555555555555", "sigma", techniques=["t1003.001"]),
+        ch("sigma:bbbbbbbb-2222-3333-4444-555555555555", "sigma", techniques=["T1059.001"]),
+        ch("sigma:cccccccc-2222-3333-4444-555555555555", "sigma", techniques=["T9999"]),
+    ]
+    g = Graph(chunks)
+
+    q = "Is cve-2024-3400 linked to T1003.001 or CVE-2099-0001? See M1043."
+    assert g.ids_in(q) == ["kev:CVE-2024-3400", "attack:T1003.001", "attack:M1043"]
+    assert g.ids_in("rule 11111111-2222-3333-4444-555555555555") == [
+        "sigma:11111111-2222-3333-4444-555555555555"
+    ]
+
+    # one PowerShell rule first, then two LSASS rules: agreement outweighs a single top hit
+    ranked = [c.doc_id for c in (chunks[6], chunks[4], chunks[5], chunks[7])]
+    votes = g.technique_votes(ranked)
+    assert [d for d, _ in votes] == ["attack:T1003.001", "attack:T1059.001"]  # T9999 not in corpus
+
+    rel = g.related("t1003.001")
+    assert len(rel["sigma_rules"]) == 2 and rel["mitigations"] == ["attack:M1043"]
+
+
+def test_french_detection_is_conservative():
+    from threatlens.retrieval.translate import is_french
+
+    assert is_french("Comment un attaquant vole-t-il les identifiants dans la mémoire de LSASS ?")
+    assert is_french("Quels avis CERT-FR récents concernent Fortinet ?")
+    assert is_french("Persistance via les clés de registre Run au démarrage de session")
+    assert not is_french("How do attackers dump credentials from LSASS?")
+    assert not is_french("Is there a CERT-FR advisory about Suricata?")
+    assert not is_french(r"rundll32.exe C:\Windows\System32\comsvcs.dll, MiniDump 624 la.dmp full")
+    assert not is_french("Is CVE-2024-3400 exploited in the wild?")
+
+
+def test_translation_falls_back_when_no_model(monkeypatch):
+    from threatlens.config import settings
+    from threatlens.llm import client
+    from threatlens.retrieval import translate
+
+    def boom(*a, **k):
+        raise ConnectionError("no ollama")
+
+    translate.to_english.cache_clear()
+    monkeypatch.setattr(client, "complete", boom)
+    assert translate.english_variant("Quels sont les avis sur la faille Ivanti ?") is None
+    assert translate.english_variant("What is Kerberoasting?") is None
+    translate.to_english.cache_clear()
+    monkeypatch.setattr(
+        client,
+        "complete",
+        lambda *a, **k: client.LLMResult('"Ivanti advisories?"\n(note)', "m", 0, 1),
+    )
+    assert (
+        translate.english_variant("Quels sont les avis sur la faille Ivanti ?")
+        == "Ivanti advisories?"
+    )
+    monkeypatch.setattr(settings, "translate_queries", False)
+    assert translate.english_variant("Quels sont les avis sur la faille Ivanti ?") is None
+    translate.to_english.cache_clear()

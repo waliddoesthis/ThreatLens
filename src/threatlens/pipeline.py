@@ -9,6 +9,7 @@ from threatlens.llm import router
 from threatlens.llm.client import complete
 from threatlens.llm.prompts import build_messages
 from threatlens.retrieval.hybrid import get_retriever
+from threatlens.retrieval.translate import english_variant
 from threatlens.schema import Answer, Chunk, RetrievedChunk
 
 _CVE = re.compile(r"\bCVE-\d{4}-\d{4,}\b", re.I)
@@ -39,16 +40,52 @@ def _nvd_fallback(question: str, chunks: list[RetrievedChunk]) -> list[Retrieved
     return extra + chunks
 
 
-def retrieve(question: str) -> list[RetrievedChunk]:
-    cands = get_retriever().search(question, settings.top_k_retrieve)
+def retrieve(
+    question: str, expand: bool | None = None, top_k: int | None = None
+) -> list[RetrievedChunk]:
+    """Hybrid search + fused rerank, plus two graph steps when `expand` (default: settings):
+
+    - **link expansion** (pasted alerts / command lines only): the ATT&CK techniques tagged by
+      the Sigma rules among the candidates take the last `graph_top_n` places of the context.
+      A raw command line matches detection rules far better than a technique description, and
+      the cross-encoder agrees with the retrievers; the rules' own tags lead to the technique.
+      Reserved places instead of a re-ranking, so prose questions are untouched.
+    - **exact lookup**: documents whose id the question names (CVE, technique, advisory, rule)
+      are put first, whatever the retrievers ranked.
+
+    French questions are additionally searched in English (retrieval.translate).
+    """
+    expand = settings.graph_expansion if expand is None else expand
+    top_k = top_k or settings.top_k_final
+    r = get_retriever()
+    # a French question is also searched in English; the reranker then reads the English wording
+    english = english_variant(question)
+    cands = r.search(question, settings.top_k_retrieve, also=english)
     if settings.use_reranker:
         from threatlens.retrieval.rerank import rerank
 
-        return rerank(question, cands, settings.top_k_final)
-    return cands[: settings.top_k_final]
+        out = rerank(english or question, cands, len(cands))
+    else:
+        out = cands
+    if not expand:
+        return out[:top_k]
+
+    linked: list[RetrievedChunk] = []
+    if router.looks_like_log(question):
+        votes = r.graph.technique_votes([c.chunk.doc_id for c in cands])[: settings.graph_top_n]
+        linked = [RetrievedChunk(r.doc(d), score, "graph") for d, score in votes]
+    named = [RetrievedChunk(r.doc(d), 1.0, "lookup") for d in r.graph.ids_in(question)]
+    taken = {c.chunk.doc_id for c in named + linked}
+    keep = [c for c in out if c.chunk.doc_id not in taken]
+    return named + keep[: max(top_k - len(named) - len(linked), 0)] + linked
 
 
-def answer(question: str, force_model: str | None = None) -> Answer:
+def answer(question: str, force_model: str | None = None, mode: str | None = None) -> Answer:
+    """mode: "pipeline" (fixed chain below) or "agent" (the model picks tools); default settings."""
+    if (mode or settings.answer_mode) == "agent":
+        from threatlens import agent
+
+        return agent.answer(question, force_model=force_model)
     t0 = time.perf_counter()
     flags = guard.check_query(question)
 
@@ -59,6 +96,7 @@ def answer(question: str, force_model: str | None = None) -> Answer:
     model, reason = (force_model, "forced") if force_model else router.route(question, chunks)
     res = complete(model, build_messages(question, chunks))
 
+    flags += guard.check_citations(res.text, {c.chunk.doc_id for c in chunks})
     return Answer(
         answer=res.text,
         citations=chunks,

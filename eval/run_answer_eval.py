@@ -1,7 +1,8 @@
 """Answer quality: faithfulness, relevancy (LLM judge) + citation accuracy (deterministic).
 
-python eval/run_answer_eval.py [--model M] [--judge J] [--limit N] [--stride N] [--types cve detection ...]
-  -> eval/results/answers-<model>.md (+ .jsonl with every answer, verdict and metric)
+python eval/run_answer_eval.py [--model M] [--judge J] [--mode pipeline|agent] [--limit N]
+                               [--stride N] [--types cve detection ...]
+  -> eval/results/answers-<model>[-agent].md (+ .jsonl with every answer, verdict and metric)
 
 Every question goes through the real pipeline (retrieval, rerank, guard, prompt); only the
 router is bypassed so one model is measured at a time. The per-question rows double as
@@ -37,8 +38,8 @@ SUMMARY = [
 ]
 
 
-def evaluate_one(q: dict, model: str, judge_model: str) -> dict:
-    ans = pipeline.answer(q["question"], force_model=model)
+def evaluate_one(q: dict, model: str, judge_model: str, mode: str = "pipeline") -> dict:
+    ans = pipeline.answer(q["question"], force_model=model, mode=mode)
     provided = [c.chunk.doc_id for c in ans.citations]
     source_text = "\n".join(c.chunk.text for c in ans.citations)
     row = {
@@ -50,6 +51,9 @@ def evaluate_one(q: dict, model: str, judge_model: str) -> dict:
         "answer": ans.answer,
         "latency_ms": float(ans.latency_ms),
         "cost_usd": ans.cost_usd,
+        # agent mode: tools the model chose itself (seeded steps excluded)
+        "tool_calls": [s["tool"] for s in ans.steps if not s.get("seeded")],
+        "guard_flags": ans.guard_flags,
     } | citation_metrics(ans.answer, provided, set(q["gold_ids"]), source_text)
     verdict = judge(judge_model, q["question"], ans.answer, ans.citations)
     return row | verdict
@@ -70,6 +74,7 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--model", default=settings.small_model)
     p.add_argument("--judge", default=settings.judge_model or settings.large_model)
+    p.add_argument("--mode", choices=["pipeline", "agent"], default="pipeline")
     p.add_argument("--limit", type=int, default=0, help="first N questions (0 = all)")
     p.add_argument("--stride", type=int, default=1, help="every Nth question (quick CPU runs)")
     p.add_argument("--types", nargs="*", help="only these question types")
@@ -85,18 +90,22 @@ def main() -> None:
     out = HERE / "results"
     out.mkdir(exist_ok=True)
     stem = "answers-" + re.sub(r"[^a-z0-9.]+", "-", args.model.split("/")[-1].lower()).strip("-")
+    if args.mode == "agent":
+        stem += "-agent"
     jsonl = out / f"{stem}.jsonl"
     rows: list[dict] = []
     t0 = time.perf_counter()
     with jsonl.open("w", encoding="utf-8") as f:
         for i, q in enumerate(qs, 1):
-            row = evaluate_one(q, args.model, args.judge)
+            row = evaluate_one(q, args.model, args.judge, args.mode)
             rows.append(row)
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
             f.flush()
             print(
                 f"[{i}/{len(qs)}] {q['id']} faith={row['faithfulness']} "
-                f"valid={row['citation_validity']} gold={row['gold_cited']}"
+                f"valid={row['citation_validity']} gold={row['gold_cited']} "
+                f"({round(time.perf_counter() - t0)} s)",
+                flush=True,  # visible at once when the output is redirected to a log file
             )
 
     s = summarise(rows)
@@ -115,7 +124,7 @@ def main() -> None:
         return "–" if v is None else (f"{v:.3f}" if isinstance(v, float) else str(v))
 
     md = [
-        f"Generator: `{args.model}` · judge: `{args.judge}` · reranker: {settings.reranker_model}"
+        f"Generator: `{args.model}` ({args.mode}) · judge: `{args.judge}` · reranker: {settings.reranker_model}"
         f" · top {settings.top_k_final} chunks · {round(time.perf_counter() - t0)} s total\n",
         "| Scope | " + " | ".join(cols) + " |",
         "|" + "---|" * (len(cols) + 1),

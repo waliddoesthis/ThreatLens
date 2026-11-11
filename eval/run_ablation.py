@@ -57,7 +57,7 @@ def run_config(cfg: dict, qs_all: list[dict]) -> tuple[list[dict], list[dict], d
     hybrid.get_retriever.cache_clear()
     retriever = hybrid.get_retriever()
     qs = usable_questions(qs_all, {c.doc_id for c in retriever.chunks})
-    rows, by_type = evaluate(retriever, qs, MODES)
+    rows, by_type, _ = evaluate(retriever, qs, MODES)
     info = {"config": name_of(cfg), "n_chunks": meta["n_chunks"], "build_s": build_s} | cfg
     return [info | r for r in rows], [info | r for r in by_type], info
 
