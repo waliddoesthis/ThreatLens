@@ -57,7 +57,8 @@ Tick boxes as you go. Each milestone ends with something measurable for the READ
 - [x] GitHub Actions CI (ruff + pytest) — runs on every push and PR (light install, model-free tests)
 - [x] Streamed answers (`POST /ask/stream`, live UI) — first token 18.9 s vs full answer 27.8 s on the 8 GB GPU (−9.0 s, CI −10.2 to −7.9); 13.1 s of the wait is retrieval + reranking on a CPU build of PyTorch
 - [ ] Reranker on the GPU (or a lighter one): the measured bottleneck before the first token
-- [ ] Cloud deployment (Azure Container Apps or AWS App Runner) + live URL
+- [x] Demo image for a Hugging Face Space (`deploy/space/`, [guide](DEPLOY.md)): corpus and index built into the image from the pinned sources (6,094 chunks, about 9 minutes on 4 CPUs), hosted model by configuration, questions capped per visit and per day
+- [ ] Create the Space, set the API key, put the live URL in the README
 - [ ] Monitoring dashboard (Streamlit page or Power BI)
 - [ ] README final: diagram, results, demo video, "how to run"
 - [ ] CV bullet + LinkedIn post

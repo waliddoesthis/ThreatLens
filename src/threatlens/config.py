@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     agent_max_steps: int = 4  # tool-calling turns before the answer is written
     agent_max_sources: int = 8  # documents the answer is written from (seeded ones first)
 
+    # Public demo (0 = no cap): questions per UTC day for everybody, and per browser session
+    demo_daily_limit: int = 0
+    demo_session_limit: int = 0
+
     # Router
     router_mode: str = "rules"  # rules | always_small | always_large
     # best cross-encoder score (0-1) below which the small model is not trusted with the answer

@@ -210,3 +210,23 @@ def test_translation_falls_back_when_no_model(monkeypatch):
     monkeypatch.setattr(settings, "translate_queries", False)
     assert translate.english_variant("Quels sont les avis sur la faille Ivanti ?") is None
     translate.to_english.cache_clear()
+
+
+def test_demo_limits_cap_the_day_and_the_session():
+    from datetime import UTC, datetime
+
+    from threatlens.limits import DailyBudget, refusal
+
+    day1, day2 = datetime(2026, 11, 11, 23, 59, tzinfo=UTC), datetime(2026, 11, 12, tzinfo=UTC)
+    b = DailyBudget(2)
+    assert [b.take(day1), b.take(day1), b.take(day1)] == [True, True, False] and b.left == 0
+    assert b.take(day2) and b.left == 1  # a new UTC day starts a new budget
+
+    off = DailyBudget(0)
+    assert all(off.take() for _ in range(50)) and off.left is None
+
+    # the session cap answers first and does not spend the shared budget
+    b = DailyBudget(1)
+    assert "per visit" in refusal(b, session_used=3, session_limit=3) and b.left == 1
+    assert refusal(b, session_used=0, session_limit=3) is None
+    assert "quota" in refusal(b, session_used=1, session_limit=3)
