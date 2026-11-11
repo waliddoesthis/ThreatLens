@@ -1,11 +1,18 @@
 # Deploying the demo to a Hugging Face Space
 
-The public demo is a Docker Space on free CPU hardware. The image holds the code, the corpus and
+> **Not free, and not deployed.** Creating a Docker Space needs Hugging Face's PRO plan
+> ($9 a month for a personal account, checked on their pricing and Spaces pages on 2026-11-11).
+> Only the CPU hardware itself is free; free accounts can create static Spaces only. An earlier
+> version of this guide called the Space free: that was wrong. The project shows a
+> [recorded demo](DEMO.md) instead, and this guide stays for whoever has a PRO account or wants to
+> run the same image elsewhere (see "Run the same image locally").
+
+The demo image is a Docker Space on CPU basic hardware. The image holds the code, the corpus and
 the index; the language model is a hosted one, reached with an API key kept in the Space's secrets.
 Nothing in this repository contains a key.
 
 ## What you need
-- A Hugging Face account.
+- A Hugging Face account on the PRO plan (Docker Spaces cannot be created on a free account).
 - An API key for a hosted model that LiteLLM supports. Any provider works: the app only reads
   `SMALL_MODEL`, `LARGE_MODEL` and the provider's key from the environment.
 
@@ -55,10 +62,10 @@ model name shows up as an error on the first answer, not at build time.
 - The demo shows a notice not to paste confidential data: it is a public page and the model is a
   third party's.
 
-## What the free hardware costs
+## What the CPU hardware costs
 The Space has 2 shared vCPUs and no GPU. Embedding the question and reranking 30 candidates with
 the cross-encoder take most of the wait before the first token (measured at 13 s on a laptop CPU,
-see the streaming results in the README). A free Space also sleeps after a period without
+see the streaming results in the README). A Space on that hardware also sleeps after a period without
 visitors, and the first question after a wake-up reloads the models.
 
 ## Run the same image locally
