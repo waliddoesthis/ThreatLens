@@ -18,7 +18,7 @@ Built and measured:
 Planned ([roadmap](docs/ROADMAP.md)), not claimed yet:
 - **Cost-aware LLM routing** (M3): a rule-based router exists; the learned router and the quality-vs-cost numbers do not
 - **Prompt-injection defences** (M4): a heuristic guard and a delimited prompt exist; the attack/defence benchmark does not
-- **Live demo** (M5): the Hugging Face Space image, the usage caps and the [deployment guide](docs/DEPLOY.md) are in the repository; the public URL is not up yet
+- **Live demo** (M5): there is no public URL. A demo image with usage caps and a [deployment guide](docs/DEPLOY.md) are in the repository, but the host it targets turned out to need a paid plan; the demo is a [recording of the local app](docs/DEMO.md)
 - **Monitoring** (M5)
 
 ## Architecture
