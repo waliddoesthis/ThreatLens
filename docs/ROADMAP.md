@@ -55,6 +55,8 @@ Tick boxes as you go. Each milestone ends with something measurable for the READ
 
 ## M5 — Ship it (week 3)
 - [x] GitHub Actions CI (ruff + pytest) — runs on every push and PR (light install, model-free tests)
+- [x] Streamed answers (`POST /ask/stream`, live UI) — first token 18.9 s vs full answer 27.8 s on the 8 GB GPU (−9.0 s, CI −10.2 to −7.9); 13.1 s of the wait is retrieval + reranking on a CPU build of PyTorch
+- [ ] Reranker on the GPU (or a lighter one): the measured bottleneck before the first token
 - [ ] Cloud deployment (Azure Container Apps or AWS App Runner) + live URL
 - [ ] Monitoring dashboard (Streamlit page or Power BI)
 - [ ] README final: diagram, results, demo video, "how to run"

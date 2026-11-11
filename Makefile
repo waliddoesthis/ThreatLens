@@ -1,4 +1,4 @@
-.PHONY: install ingest index api ui eval eval-alerts eval-ablation eval-answers eval-answers-agent plots test lint docker
+.PHONY: install ingest index api ui eval eval-alerts eval-ablation eval-answers eval-answers-agent eval-stream plots test lint docker
 
 install:
 	pip install -e ".[dev]"
@@ -29,6 +29,9 @@ eval-answers:
 
 eval-answers-agent:
 	python eval/run_answer_eval.py --mode agent
+
+eval-stream:
+	python -u eval/run_stream_latency.py
 
 plots:
 	python eval/plot_results.py
