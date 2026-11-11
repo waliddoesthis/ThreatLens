@@ -103,7 +103,9 @@ def main() -> None:
             f.flush()
             print(
                 f"[{i}/{len(qs)}] {q['id']} faith={row['faithfulness']} "
-                f"valid={row['citation_validity']} gold={row['gold_cited']}"
+                f"valid={row['citation_validity']} gold={row['gold_cited']} "
+                f"({round(time.perf_counter() - t0)} s)",
+                flush=True,  # visible at once when the output is redirected to a log file
             )
 
     s = summarise(rows)
