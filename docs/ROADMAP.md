@@ -1,9 +1,9 @@
 # ThreatLens — Roadmap
 
-Tick boxes as you go. Each milestone ends with something measurable for the README.
+Each milestone ends with something measurable for the README. M0 to M2.5 are complete; M3 to M5 list what is built and what is next.
 
 ## M0 — Setup (½ day)
-- [x] Repo scaffold, CLAUDE.md, SPEC, roadmap
+- [x] Repo scaffold, CONTRIBUTING, SPEC, roadmap
 - [x] `make install` works, `make test` green
 - [x] GitHub repo created (public), first commit
 
@@ -62,4 +62,3 @@ Tick boxes as you go. Each milestone ends with something measurable for the READ
 - [ ] Public URL (open: Azure for Students or Streamlit Community Cloud are the free candidates)
 - [ ] Monitoring dashboard (Streamlit page or Power BI)
 - [ ] README final: diagram, results, demo video, "how to run"
-- [ ] CV bullet + LinkedIn post

@@ -1,6 +1,6 @@
 """Cost-aware model router (M3).
 
-v1 = transparent rules. v2 (todo) = logistic regression trained on eval data predicting
+v1 = transparent rules. v2 (planned, M3) = logistic regression trained on eval data predicting
 P(small model answer is good enough), routing to the small model when P > threshold.
 The threshold is the decision knob that traces the quality-vs-cost Pareto front.
 """
