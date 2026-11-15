@@ -1,6 +1,6 @@
 # Design decisions log
 
-One entry per non-trivial choice. These are your interview answers.
+One entry per non-trivial choice: the decision, the alternatives considered and why.
 
 ## 2026-10-29 — Hybrid retrieval (BM25 + dense) fused with RRF
 - **Decision:** combine BM25 and dense retrieval with Reciprocal Rank Fusion.

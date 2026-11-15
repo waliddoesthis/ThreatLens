@@ -61,4 +61,3 @@ Each milestone ends with something measurable for the README. M0 to M2.5 are com
 - [x] Demo GIF recorded by `scripts/record_demo.py` on the local GPU ([DEMO.md](DEMO.md)) at the top of the README (chosen over hosting: a Docker Space needs a paid plan): a CVE, agent mode and a French question, 42 s
 - [ ] Public URL (open: Azure for Students or Streamlit Community Cloud are the free candidates)
 - [ ] Monitoring dashboard (Streamlit page or Power BI)
-- [ ] README final: diagram, results, demo video, "how to run"
