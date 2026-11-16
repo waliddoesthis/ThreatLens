@@ -1,6 +1,6 @@
 # Design decisions log
 
-One entry per non-trivial choice. These are your interview answers.
+One entry per non-trivial choice: the decision, the alternatives considered and why.
 
 ## 2026-10-29 — Hybrid retrieval (BM25 + dense) fused with RRF
 - **Decision:** combine BM25 and dense retrieval with Reciprocal Rank Fusion.
@@ -71,7 +71,7 @@ One entry per non-trivial choice. These are your interview answers.
 
 ## 2026-11-04 — Benchmark grows to 117 questions, scored per question type
 - **Decision:** add 82 questions (q036–q117): 35 ATT&CK paraphrases, 6 mitigations, 16 CVE nicknames (Spring4Shell, Follina, ProxyNotShell, noPac…), 10 detection questions, 5 raw alerts / log lines, 5 CERT-FR questions and 5 French paraphrases of English ATT&CK questions. Four questions have 2–3 gold docs (ProxyNotShell, the Ivanti chain, noPac, DCSync rules). Every gold id was checked against the corpus before committing.
-- **Why these types:** CLAUDE.md promises "a question, an alert, a log line or a CVE id"; alerts and French queries were not measured at all before. `run_retrieval_eval.py` now reports metrics per type, because an average over 117 questions hides a type that fails completely.
+- **Why these types:** the project brief promises "a question, an alert, a log line or a CVE id"; alerts and French queries were not measured at all before. `run_retrieval_eval.py` now reports metrics per type, because an average over 117 questions hides a type that fails completely.
 - **Stale labels:** CERT-FR's feed keeps only ~40 recent advisories and ATT&CK renumbers techniques, so the eval drops gold ids that are no longer in the corpus (with a warning) instead of counting them as misses. The CERT-FR questions are tied to the 2026-11-03 snapshot.
 
 ## 2026-11-04 — Strip ATT&CK "(Citation: …)" markers at ingest
@@ -106,7 +106,7 @@ One entry per non-trivial choice. These are your interview answers.
 
 - **Decision:** keep bge-small as the default. bge-base's gain (+0.015 R@5, ≈2 questions of 117) is within what one relabelled question moves, and it costs 4× build time, 2× vector size and slower CPU queries on the App Runner / Container Apps target. It stays one `EMBEDDING_MODEL=BAAI/bge-base-en-v1.5` away. Each model gets its own query/passage instruction prefix (`index.embedding_prefixes`); e5 without `query:`/`passage:` is a known recall loss.
 - **French is not solved by a multilingual encoder alone:** multilingual-e5-small reaches only 0.2 on the French paraphrases after fusion, and its dense English scores drop (R@5 0.822 vs 0.877). The hybrid also mixes in a BM25 list that has no French tokens to match. Next options: translate the query to English with the small LLM before retrieval, or bge-m3. Logged for after M4.
-- **Removed `ragas` from the `eval` extra:** its current release fails to import (`langchain_community` API change) and it pulls LangChain, which CLAUDE.md keeps out of the core. Faithfulness uses a 40-line LLM-as-judge instead (`eval/judge.py`).
+- **Removed `ragas` from the `eval` extra:** its current release fails to import (`langchain_community` API change) and it pulls LangChain, which the project rules keep out of the core. Faithfulness uses a 40-line LLM-as-judge instead (`eval/judge.py`).
 
 ## 2026-11-04 — Answer eval: deterministic citation checks next to an LLM judge
 - **Decision:** `eval/run_answer_eval.py` runs each question through the real pipeline (only the router is bypassed) and scores the answer two ways:
@@ -223,7 +223,7 @@ One entry per non-trivial choice. These are your interview answers.
 - **Why seeded — what the first trial showed:** with free tool choice, `llama3.1:8b` (4 questions, CPU) made exactly one call per question and then wrote from memory. For "How do I detect and mitigate Kerberoasting?" it called `lookup("T1505")` (Kerberoasting is T1558.003) and cited a Sigma rule id that does not exist. The fixed pipeline answered the same questions better. An 8B model is a poor planner but a usable follow-up caller: seeded with the retrieved sources, the same question led to `related("T1558.003")` and an answer listing that technique's real rules and mitigations (M1026, M1027, M1041), and no invalid citation was flagged in the 4 answers.
 - **What is not shown:** this is a 4-question smoke test, not a result. The seeded agent still mislabelled a technique name from memory ("T1036: Data Encrypted") and dropped the `[source:id]` format in places, and on 4 CPUs it takes 2–4 minutes per answer. Whether agent mode beats the pipeline on faithfulness and citations is the job of `make eval-answers-agent` on a GPU. Until then the pipeline stays the default (`ANSWER_MODE=pipeline`).
 - **Why "agentic" is back in the README:** the model does choose and call tools. The claim is limited on purpose: retrieval first, the model second.
-- **Alternatives:** LangGraph or another agent framework (CLAUDE.md keeps frameworks out of the core; the loop is 160 lines); ReAct text parsing (native tool calls are more reliable on small models); letting the model plan freely (measured above, worse).
+- **Alternatives:** LangGraph or another agent framework (the project rules keep frameworks out of the core; the loop is 160 lines); ReAct text parsing (native tool calls are more reliable on small models); letting the model plan freely (measured above, worse).
 
 ## 2026-11-11 — Agent mode gathers with tools, then the pipeline's prompt writes the answer
 - **Finding (full benchmark, 117 questions, llama3.1:8b on GPU, judge qwen2.5:7b, pinned corpus):** the first agent, where one turn could either call a tool or answer, was as grounded as the pipeline but stopped citing. Faithfulness 0.879 against 0.885; answers with no citation at all 81 of 117 against 18 of 117; gold document cited 0.239 against 0.779. It chose 0.8 tools per question, almost always `related`. Rows are kept in `eval/results/answers-llama3.1-8b-agent-oneturn.*`.

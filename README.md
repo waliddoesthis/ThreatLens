@@ -2,14 +2,11 @@
 
 **Agentic RAG copilot for SOC & CTI analysts** — ask about an alert, a log line or a CVE and get a cited answer grounded in MITRE ATT&CK, CISA KEV, NVD, CERT-FR and SigmaHQ.
 
-> Status: 🚧 work in progress — see [docs/ROADMAP.md](docs/ROADMAP.md)
-
 ![ThreatLens answering a CVE question, an agent-mode question and a French question, with cited sources](docs/img/demo.gif)
 
 *Recorded by a [script](docs/DEMO.md) on the local app: llama3.1:8b on an 8 GB RTX 2070, nothing edited. The wait before the first words is played 8× faster and labelled; the writing is real speed.*
 
 ## Highlights
-Built and measured:
 - **Hybrid retrieval**: BM25 + dense embeddings fused with RRF, cross-encoder reranking
 - **A small knowledge graph from the sources' own links**: Sigma rule → ATT&CK technique → mitigation. A pasted command line is matched to detection rules, and the rules' tags lead to the technique (Recall@5 on 107 real command lines: 0.15 → 0.33)
 - **Agent mode**: retrieval always runs first, then the model chooses tools (exact id lookup, KEV status, linked rules and mitigations, NVD, another search); every call is shown in the UI
@@ -18,12 +15,6 @@ Built and measured:
 - **French questions** are searched in both languages (Recall@5 0 → 5 of 5)
 - **Measured, with error bars**: two retrieval benchmarks (117 questions, 107 real alerts), ablations, bootstrap confidence intervals, pinned data versions ([results](#results))
 - **Runs anywhere**: FastAPI, Streamlit, Docker Compose, CI (ruff + pytest)
-
-Planned ([roadmap](docs/ROADMAP.md)), not claimed yet:
-- **Cost-aware LLM routing** (M3): a rule-based router exists; the learned router and the quality-vs-cost numbers do not
-- **Prompt-injection defences** (M4): a heuristic guard and a delimited prompt exist; the attack/defence benchmark does not
-- **Live demo** (M5): there is no public URL. A demo image with usage caps and a [deployment guide](docs/DEPLOY.md) are in the repository, but the host it targets turned out to need a paid plan; the demo is the [recording above](docs/DEMO.md)
-- **Monitoring** (M5)
 
 ## Architecture
 ```
@@ -145,6 +136,16 @@ Full run on 117 questions, pinned corpus, generator `llama3.1:8b` through `ollam
 - **CERT-FR is now the weak spot**: on its 5 questions the gold advisory is cited in 0.40 of answers and 1.8 ids per answer appear in no source.
 - M2 measured 0.875 faithfulness and 0.765 gold cited on 112 questions, before the corpus was pinned and through a route that flattened the system prompt. The re-run moved neither number by more than 0.015.
 - These per-question rows ([jsonl](eval/results/answers-llama3.1-8b.jsonl)) are the training labels for the M3 router.
+
+## Roadmap
+Everything above is built and measured. Next, in order ([docs/ROADMAP.md](docs/ROADMAP.md)):
+- **Cost-aware routing**: the router is rule-based today; a learned router and its quality-versus-cost curve come next, with a larger model for the agent
+- **Prompt-injection benchmark**: the heuristic guard and the delimited prompt are in place; the attack set and the before/after attack success rate are next
+- **Reranker on the GPU**: the measured bottleneck before the first token
+- **Public URL**: a demo image with usage caps and a [deployment guide](docs/DEPLOY.md) are ready; the demo is the [recording above](docs/DEMO.md) until it is hosted
+
+## Contributing
+Layout, commands and conventions: [CONTRIBUTING.md](CONTRIBUTING.md). Design decisions and their reasons: [docs/DECISIONS.md](docs/DECISIONS.md).
 
 ## Data
 Public sources only — see [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md). ATT&CK® is a registered trademark of The MITRE Corporation.

@@ -1,6 +1,6 @@
-# CLAUDE.md — ThreatLens
+# Contributing to ThreatLens
 
-Context for Claude (Claude Code, Cowork, or a Claude Project) working on this repo.
+How the repository is organised and the rules every change follows.
 
 ## What this is
 ThreatLens is an **agentic RAG copilot for SOC / CTI analysts**: a fixed retrieval pipeline plus an agent mode in which the model calls tools after a forced first retrieval. Input: a question, an alert, a log line or a CVE ID.

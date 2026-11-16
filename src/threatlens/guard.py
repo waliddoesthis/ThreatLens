@@ -1,4 +1,4 @@
-"""Prompt-injection guard (M4). v1 = heuristics; v2 (todo) = small classifier.
+"""Prompt-injection guard (M4). v1 = heuristics; v2 (planned, M4) = small classifier.
 
 Two jobs:
 - check_query: flag suspicious user input
